@@ -1,1 +1,3 @@
-# catcher-rl
+#  lesgoski
+
+sto cucinando, prima o poi finirò questo progetto
