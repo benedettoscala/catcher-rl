@@ -4,10 +4,12 @@ from gymnasium import spaces
 import random
 import pygame
 import time
+import torch
 
 class CatcherEnv(gym.Env):
     """
     Ambiente per il gioco Catcher con supporto per rendering tramite Pygame e controllo utente.
+    Modificato per supportare GPU tramite PyTorch.
     """
     def __init__(self, render_mode=False, user_control=False, object_speed=5, paddle_speed=10, num_objects=5):
         super(CatcherEnv, self).__init__()
@@ -26,12 +28,19 @@ class CatcherEnv(gym.Env):
         # Azioni possibili: sinistra (-1), destra (+1), stazionamento (0)
         self.action_space = spaces.Discrete(3)
 
-        # Osservazioni: posizione del paddle, posizione degli oggetti (x, y), punteggio, vite
+        # Osservazioni: posizione del paddle, posizione degli oggetti (x, y), velocità, punteggio, vite, tempo che il paddle è rimasto fermo
         self.observation_space = spaces.Dict({
             "paddle_pos": spaces.Box(low=0, high=self.width, shape=(1,), dtype=np.float32),
-            "objects": spaces.Box(low=0, high=self.width, shape=(self.num_objects, 2), dtype=np.float32),
-            "score": spaces.Discrete(1000),
-            "lives": spaces.Discrete(5),
+            "objects": spaces.Box(
+                low=np.tile(np.array([0, 0, -self.object_speed]), (self.num_objects, 1)),  # Estende [0, 0, -speed] a (num_objects, 3)
+                high=np.tile(np.array([self.width, self.height, self.object_speed]), (self.num_objects, 1)),  # Estende [width, height, speed] a (num_objects, 3)
+                shape=(self.num_objects, 3),
+                dtype=np.float32
+            ),
+            "score_beneficial": spaces.Discrete(1000),
+            "score_harmful": spaces.Discrete(1000),
+            "lives": spaces.Discrete(3),
+            "time_stationary": spaces.Box(low=0, high=np.inf, shape=(1,), dtype=np.float32),  # Nuova chiave
         })
 
         # Variabili Pygame
@@ -41,10 +50,13 @@ class CatcherEnv(gym.Env):
         self.paddle_height = 20
         self.object_size = 30
 
-        # Sprite
-        self.paddle_sprite = None
-        self.object_sprite_beneficial = None
-        self.object_sprite_harmful = None
+        # Tracciamento del movimento del paddle
+        self.last_paddle_pos = self.width / 2  # Posizione iniziale del paddle
+        self.no_move_steps = 0  # Contatore dei passi senza movimento
+        self.max_no_move_steps = 6  # Soglia massima di passi senza movimento per penalità
+        
+        # GPU support
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.reset()
 
@@ -66,6 +78,10 @@ class CatcherEnv(gym.Env):
         self.lives = 3
         self.start_time = time.time()
 
+        # Resetta il tracciamento del movimento
+        self.last_paddle_pos = self.paddle_pos
+        self.no_move_steps = 0  # Reset del contatore dei passi
+
         if self.render_mode:
             self._init_pygame()
 
@@ -74,15 +90,6 @@ class CatcherEnv(gym.Env):
     def step(self, action):
         """
         Esegue un passo nell'ambiente dato un'azione.
-        
-        Args:
-            action (int): 0 -> sinistra, 1 -> stazionamento, 2 -> destra
-        
-        Returns:
-            obs (dict): Lo stato attuale dell'ambiente
-            reward (float): Ricompensa ottenuta
-            done (bool): Se l'episodio è terminato
-            info (dict): Informazioni addizionali
         """
         if not self.user_control:
             if action == 0:  # Sinistra
@@ -91,6 +98,18 @@ class CatcherEnv(gym.Env):
                 self.paddle_pos = min(self.width - self.paddle_width, self.paddle_pos + self.paddle_speed)
 
         reward = 0
+
+        # Verifica se il paddle è rimasto fermo
+        if self.paddle_pos != self.last_paddle_pos:
+            self.last_paddle_pos = self.paddle_pos
+            self.no_move_steps = 0  # Reset del contatore
+        else:
+            self.no_move_steps += 1
+
+        # Penalità per essere rimasti fermi troppo a lungo
+        if self.no_move_steps > self.max_no_move_steps:
+            reward -= 100  # Penalità per essere rimasti fermi troppo a lungo
+            self.no_move_steps = 0  # Reset del contatore dopo la penalità
 
         for obj in self.objects:
             obj["pos"][1] += obj["velocity"][1]
@@ -115,22 +134,32 @@ class CatcherEnv(gym.Env):
                 obj["pos"] = [random.uniform(0, self.width), random.uniform(-self.height, 0)]
 
         done = self.lives <= 0
+        truncated = False
 
         if self.render_mode:
             self.render()
 
-        return self._get_obs(), reward, done, {}
+        return self._get_obs(), reward, done, truncated, {}
 
     def _get_obs(self):
         """
-        Restituisce lo stato osservabile dell'ambiente.
+        Restituisce lo stato osservabile dell'ambiente, inclusa la posizione e il tipo degli oggetti.
         """
+        objects_with_type_and_velocity = [
+            obj["pos"] + [obj["velocity"][1]] + [1 if obj["type"] == "beneficial" else 0]  # Aggiunge velocità e tipo
+            for obj in self.objects
+        ]
+
+        # Tempo fermo in secondi
+        time_stationary = self.no_move_steps * (1 / 30)  # Assume 30 FPS
+
         return {
-            "paddle_pos": np.array([self.paddle_pos], dtype=np.float32),
-            "objects": np.array([obj["pos"] for obj in self.objects], dtype=np.float32),
+            "paddle_pos": torch.tensor([self.paddle_pos], dtype=torch.float32, device=self.device),
+            "objects": torch.tensor(objects_with_type_and_velocity, dtype=torch.float32, device=self.device),
             "score_beneficial": self.score_beneficial,
             "score_harmful": self.score_harmful,
             "lives": self.lives,
+            "time_stationary": torch.tensor([time_stationary], dtype=torch.float32, device=self.device),  # Nuovo
         }
 
     def render(self, mode="human"):
@@ -212,8 +241,10 @@ if __name__ == "__main__":
         if env.user_control and env.render_mode:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    print("Chiusura forzata.")
                     done = True
+                    env.close()
             env.handle_user_input()
-        obs, reward, done, info = env.step(1)  # Stazionamento
-        print(f"Reward: {reward}")
+        obs, reward, done, truncated, info = env.step(1)  # Stazionamento
+        #print(f"Reward: {reward}")
     env.close()
