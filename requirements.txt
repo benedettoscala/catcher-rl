@@ -1,3 +1,5 @@
 gymnasium
 pygame
-torch
+numpy
+tensorboardX
+matplotlib
