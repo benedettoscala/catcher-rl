@@ -20,7 +20,7 @@ import pygame
 REPLAY_BUFFER_SIZE = 30000
 BATCH_SIZE = 64
 LEARNING_RATE = 0.0001        # Abbassato da 0.0005
-EPISODES = 300
+EPISODES = 3000
 EPSILON_DECAY = 0.9995        # Decadimento epsilon un po' più lento
 MIN_EPSILON = 0.01
 GAMMA = 0.99
