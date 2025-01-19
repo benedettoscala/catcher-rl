@@ -11,6 +11,7 @@ import pygame
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from environment.catcher_cnn import CatchEnv
+from networks.QNetwork import CNNQNetwork
 
 # Parametri generali
 REPLAY_BUFFER_SIZE = 30000
@@ -21,48 +22,6 @@ EPSILON_DECAY = 0.9995
 MIN_EPSILON = 0.01
 GAMMA = 0.99
 TAU = 0.001  # Tasso di soft update (Polyak)
-
-
-###############################################################################
-#                           RETE CNN MODIFICATA
-###############################################################################
-class CNNQNetwork(nn.Module):
-    """
-    Rete CNN per elaborare input di dimensione (2, grid_size, grid_size).
-    Più canali convoluzionali e un MaxPool per ridurre la dimensione spaziale.
-    """
-    def __init__(self, grid_size, action_size):
-        super(CNNQNetwork, self).__init__()
-        
-        # Convoluzioni: in_channels=2, out_channels=32,64 con kernel_size=3
-        self.conv_layers = nn.Sequential(
-            nn.Conv2d(in_channels=2, out_channels=32, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2), 
-        )
-        
-        # Se usiamo MaxPool2d con kernel=2, le dimensioni spaziali si dimezzano
-        # -> dimensione di out = (64, grid_size/2, grid_size/2).
-        self.grid_size = grid_size
-        self.flatten_size = 64 * (grid_size // 2) * (grid_size // 2)
-
-        self.fc_layers = nn.Sequential(
-            nn.Linear(self.flatten_size, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, action_size)
-        )
-
-    def forward(self, x):
-        # x shape: [batch_size, 2, grid_size, grid_size]
-        out = self.conv_layers(x)           # [batch_size, 64, grid_size/2, grid_size/2]
-        out = out.view(out.size(0), -1)     # flatten
-        out = self.fc_layers(out)           # [batch_size, action_size]
-        return out
-
 
 ###############################################################################
 #                      AGENTE DQN CON CNN (MODIFICATO)

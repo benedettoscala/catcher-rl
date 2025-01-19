@@ -6,7 +6,7 @@ import pygame
 LEFT = -1
 STAY = 0
 RIGHT = 1
-TIME_LIMIT = 2500
+TIME_LIMIT = 300
 
 class CatchEnv(gym.Env):
     """
@@ -112,9 +112,9 @@ class CatchEnv(gym.Env):
         reward = self._get_reward()
 
         # Controllo se abbiamo raccolto troppi oggetti malevoli
-        if self.malicious_catches >= self.max_malicious_catches:
+        #if self.malicious_catches >= self.max_malicious_catches:
             # Hai preso troppe bombe: si perde.
-            return self.observe(), reward, True, False, {}
+            #return self.observe(), reward, True, False, {}
 
         # Proviamo a spawnare nuovi frutti/bombe
         self._spawn_new_fruits()
