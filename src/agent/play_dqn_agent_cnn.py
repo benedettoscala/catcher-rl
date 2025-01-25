@@ -1,62 +1,80 @@
+#!/usr/bin/env python3
+import os
+import sys
 import torch
 import pygame
 import numpy as np
 
-import os, sys
+# Adjust the paths if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
+
 from environment.catcher_cnn import CatchEnv
-from agent.dqn_cnn import CNNQNetwork
+from networks.QNetwork import CNNQNetwork  # Ensure this matches your training import
 
+def load_and_play_model(env, model_path="cnn_dqn_model.pth"):
+    """
+    Loads a trained CNN Q-network and runs it in the given environment.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
-def load_and_play_model(env, model_path):
-    """
-    Carica un modello addestrato e gioca mostrando le azioni prese dal modello.
-    
-    Parameters:
-        env: L'ambiente CatchEnv.
-        model_path: Percorso del modello salvato.
-    """
-    # Caricare il modello salvato
-    grid_size = env.observation_space.shape[0]  # Es: 20x20
+    # The environment is set to grid_size=20 with 2 channels => in_channels=2
+    # and action_size = 3 (LEFT, STAY, RIGHT)
+    grid_size = env.grid_size
     action_size = env.action_space.n
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = CNNQNetwork(grid_size, action_size).to(device)
+    # Create the same model architecture as during training
+    model = CNNQNetwork(grid_size=grid_size, action_size=action_size).to(device)
+    
+    # Load state dict
+    if not os.path.exists(model_path):
+        print(f"Model file '{model_path}' not found!")
+        return
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
-    print(f"Modello caricato da {model_path}. Usando il dispositivo: {device}")
+    print(f"Model successfully loaded from '{model_path}'.")
 
+    # Reset environment
     obs, _ = env.reset()
     done = False
-    total_reward = 0
+    total_reward = 0.0
 
     while not done:
+        # Render the game in a Pygame window
         env.render()
 
-        # Convertire lo stato in tensore e passarlo al modello
-        state_t = torch.FloatTensor(obs).unsqueeze(0).unsqueeze(0).to(device)
+        # Convert observation to a 4D tensor: (batch=1, channels=2, H=20, W=20)
+        # obs is shape (2, 20, 20), we need shape (1, 2, 20, 20)
+        obs_t = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(device)
+
+        # Forward pass: no gradient needed
         with torch.no_grad():
-            q_values = model(state_t)
+            q_values = model(obs_t)        # shape [1, action_size]
             action = torch.argmax(q_values, dim=1).item()
 
-        # Aggiornare l'ambiente
-        obs, reward, done, _, _ = env.step(action)
+        # Step the environment
+        next_obs, reward, done, _, _ = env.step(action)
         total_reward += reward
+        obs = next_obs
 
+        # Check for quit events in Pygame
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                print("Received pygame.QUIT event. Exiting...")
                 done = True
 
     env.close()
-    print(f"Gioco terminato. Ricompensa totale: {total_reward:.2f}")
+    print(f"Game ended. Total reward: {total_reward:.2f}")
 
-
-if __name__ == "__main__":
+def main():
+    # Same grid_size you used during training
     env = CatchEnv(grid_size=20)
 
-    model_path = "cnn_dqn_model.pth"  # Percorso del modello salvato
-    if not os.path.exists(model_path):
-        print(f"Errore: Il file del modello '{model_path}' non esiste.")
-    else:
-        load_and_play_model(env, model_path)
+    # Path to the .pth file you saved during training
+    model_path = "cnn_dqn_model.pth"
+
+    load_and_play_model(env, model_path)
+
+if __name__ == "__main__":
+    main()
