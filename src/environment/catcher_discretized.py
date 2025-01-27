@@ -28,7 +28,8 @@ class CatchEnv(gym.Env):
         min_speed=0.5,
         max_speed=1.5,
         speed_bins=3,               # Numero di bin per discretizzare la velocità
-        render_mode="human"
+        render_mode="human",
+        basket_size=3
     ):
         super(CatchEnv, self).__init__()
         
@@ -43,6 +44,7 @@ class CatchEnv(gym.Env):
         self.min_speed = min_speed
         self.max_speed = max_speed
         self.speed_bins = speed_bins
+        self.basket_size = basket_size
         
         self.time_limit = TIME_LIMIT
         
@@ -363,7 +365,7 @@ class CatchEnv(gym.Env):
         basket_rect = pygame.Rect(
             x_left,
             (self.grid_size - 1) * cell_size,
-            cell_size * 3,
+            cell_size * self.basket_size,
             cell_size
         )
         pygame.draw.rect(self.window, (0, 255, 0), basket_rect)

@@ -15,7 +15,7 @@ def select_action(state, Q):
         return np.random.randint(0, 3)  # Se lo stato non è noto, scegli casualmente
 
 # Inizializzazione dell'ambiente
-env = CatchEnv(render_mode="human", grid_size=20)
+env = CatchEnv(render_mode="human", grid_size=15)
 
 def play_with_sarsa_model(env, Q, n_episodes=1):
     """
