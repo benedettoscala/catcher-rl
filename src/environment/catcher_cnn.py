@@ -151,7 +151,7 @@ class CatchEnv(gym.Env):
                 if caught:
                     # Controlla se è malevolo
                     if self.fruit_is_malicious[i]:
-                        reward -= 4
+                        reward -= 10
                         self.malicious_catches += 1
                     else:
                         reward += 3

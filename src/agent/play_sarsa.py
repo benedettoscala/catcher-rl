@@ -1,18 +1,24 @@
 import pickle
 import numpy as np
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from environment.catcher_discretized import CatchEnv
 
 # Caricamento del modello SARSA (Q-table)
-with open("q_table.pkl", "rb") as f:
-    Q = pickle.load(f)
+with open("q_table_multi.npy", "rb") as f:
+    Q = np.load(f, allow_pickle=True)
 
 # Funzione per scegliere l'azione basata sulla Q-table (greedy)
 def select_action(state, Q):
-    state_tuple = tuple(state)
-    if state_tuple in Q:
-        return np.argmax(Q[state_tuple])
-    else:
-        return np.random.randint(0, 3)  # Se lo stato non è noto, scegli casualmente
+    """
+    Sceglie l'azione basata sulla Q-table.
+    
+    :param state: Stato corrente
+    :param Q: Q-table addestrata
+    :return: Azione scelta
+    """
+    state_idx = tuple(state)
+    return np.argmax(Q[state_idx])
 
 # Inizializzazione dell'ambiente
 env = CatchEnv(render_mode="human", grid_size=15)
