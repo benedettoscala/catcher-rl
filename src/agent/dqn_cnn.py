@@ -27,7 +27,7 @@ TAU = 0.001  # Tasso di soft update (Polyak)
 #                      AGENTE DQN CON CNN (MODIFICATO)
 ###############################################################################
 class DQNAgent:
-    def __init__(self, action_size, grid_size=20):
+    def __init__(self, action_size, grid_size=15):
         self.action_size = action_size
         self.gamma = GAMMA
         self.epsilon = 1.0
@@ -166,12 +166,15 @@ def train_dqn(env, episodes=EPISODES, batch_size=BATCH_SIZE):
         all_rewards.append(total_reward)
         all_losses.append(total_loss)
 
+        rolling_mean = np.mean(all_rewards[-50:]) if len(all_rewards) >= 50 else np.mean(all_rewards)
+
         # TensorBoard
         writer.add_scalar("Train/Reward", total_reward, e)
         writer.add_scalar("Train/Loss", total_loss, e)
         writer.add_scalar("Train/Epsilon", agent.epsilon, e)
+        writer.add_scalar("Train/rolling", rolling_mean, e)
+        
 
-        rolling_mean = np.mean(all_rewards[-50:]) if len(all_rewards) >= 50 else np.mean(all_rewards)
         print(f"Episode {e+1}/{episodes}, "
               f"Reward: {total_reward:.2f}, "
               f"Rolling: {rolling_mean:.2f}, "
