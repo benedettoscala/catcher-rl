@@ -1,11 +1,10 @@
 import numpy as np
 import logging
 import pickle
-from collections import defaultdict
-import os, sys
+import os
+import sys
+from collections import defaultdict, deque  # Usa deque per limitare crescita delle liste
 from tensorboardX import SummaryWriter
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from environment.catcher_discretized import CatchEnv
 
 # Configurazione del logging
@@ -18,17 +17,18 @@ writer = SummaryWriter(logdir="runs/sarsa_training")
 env = CatchEnv(grid_size=15)
 
 # Parametri SARSA
-Q = defaultdict(lambda: np.zeros(env.action_space.n))
+Q = defaultdict(lambda: np.zeros(env.action_space.n))  # Q-table SENZA LIMITI
 alpha = 0.1
 gamma = 0.99
 epsilon = 0.1
 n_episodes = 300000
 
-# Finestra di rolling per il calcolo della media dei reward
+# Uso deque per limitare la crescita di reward_history e td_errors
 rolling_window = 100
-reward_history = []
-td_errors = []  # Per tracciare l'errore TD
+reward_history = deque(maxlen=rolling_window)  # Mantiene solo gli ultimi 100 reward
+td_errors = deque(maxlen=rolling_window)  # Evita crescita infinita della lista TD error
 
+# Funzione epsilon-greedy per scegliere l'azione
 def epsilon_greedy(state, Q, epsilon):
     if np.random.rand() < epsilon:
         return env.action_space.sample()
@@ -51,9 +51,9 @@ for episode in range(n_episodes):
         old_value = Q[tuple(state)][action]
         td_target = reward + gamma * Q[tuple(next_state)][next_action] * (0 if done else 1)
         td_error = td_target - old_value
-        td_errors.append(td_error)
+        td_errors.append(td_error)  # Evita crescita infinita
 
-        # Aggiorno la Q-table (SARSA)
+        # Aggiorno la Q-table (SARSA) SENZA LIMITARNE LA DIMENSIONE
         Q[tuple(state)][action] = old_value + alpha * td_error
 
         # Accumulo del reward totale
@@ -63,25 +63,21 @@ for episode in range(n_episodes):
         state = next_state
         action = next_action
 
-    # Aggiungo il reward totale alla storia
+    # Aggiungo il reward totale alla memoria limitata
     reward_history.append(total_reward)
 
-    # Calcolo della media rolling
-    if len(reward_history) > rolling_window:
-        reward_history = reward_history[-rolling_window:]
-    rolling_avg = np.mean(reward_history)
-
-    # Logging su console e TensorBoardX
-    if episode % 100 == 0:
-        avg_td_error = np.mean(td_errors[-rolling_window:]) if len(td_errors) >= rolling_window else np.mean(td_errors)
-        logging.info(f"Episodio {episode + 1}/{n_episodes}: Reward totale = {total_reward}, Rolling avg (ultimi {rolling_window}) = {rolling_avg:.2f}, TD Error Medio = {avg_td_error:.4f}")
+    # Logging su console e TensorBoardX ogni 100 episodi
+    if episode % 1000 == 0:
+        avg_td_error = np.mean(td_errors) if len(td_errors) > 0 else 0
+        rolling_avg = np.mean(reward_history) if len(reward_history) > 0 else 0
+        logging.info(f"Episodio {episode + 1}/{n_episodes}: Reward Totale = {total_reward}, Rolling Avg (ultimi {rolling_window}) = {rolling_avg:.2f}, TD Error Medio = {avg_td_error:.4f}")
         writer.add_scalar("Reward_Totale", total_reward, episode)
         writer.add_scalar("Media_Rolling", rolling_avg, episode)
         writer.add_scalar("TD_Error_Medio", avg_td_error, episode)
 
 logging.info("Training completato")
 
-# Salvataggio del modello (Q-table)
+# Salvataggio del modello (Q-table SENZA LIMITI)
 with open("q_table.pkl", "wb") as f:
     pickle.dump(dict(Q), f)
     logging.info("Modello salvato su q_table.pkl")
@@ -115,5 +111,4 @@ with open("test_rewards.pkl", "wb") as f:
 
 # Chiusura di TensorBoardX
 writer.close()
-
 env.close()
