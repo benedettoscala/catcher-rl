@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class CNNQNetwork(nn.Module):
-    def __init__(self, grid_size=20, action_size=3):
+    def __init__(self, grid_size=20, action_size=3, in_channels=2):
         """
         Parametri:
         - grid_size: dimensione della griglia (es: 20)
@@ -12,7 +12,8 @@ class CNNQNetwork(nn.Module):
         super(CNNQNetwork, self).__init__()
         # Convoluzioni
         # Input: (batch_size, 2, grid_size, grid_size)
-        self.conv1 = nn.Conv2d(in_channels=2, out_channels=16, kernel_size=3, stride=1, padding=1)
+        print("in_channels: ", in_channels)
+        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=16, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
         
         # Pooling per ridurre dimensioni

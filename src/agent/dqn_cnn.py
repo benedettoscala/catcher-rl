@@ -10,7 +10,7 @@ from tensorboardX import SummaryWriter
 import pygame
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-from environment.catcher_cnn import CatchEnv
+from environment.catcher_image import CatchEnvImageChangeDirection as CatchEnv
 from networks.QNetwork import CNNQNetwork
 
 # Parametri generali
@@ -27,7 +27,8 @@ TAU = 0.001  # Tasso di soft update (Polyak)
 #                      AGENTE DQN CON CNN (MODIFICATO)
 ###############################################################################
 class DQNAgent:
-    def __init__(self, action_size, grid_size=15):
+    def __init__(self, action_size, grid_size=15, in_channels=2):
+        
         self.action_size = action_size
         self.gamma = GAMMA
         self.epsilon = 1.0
@@ -35,13 +36,14 @@ class DQNAgent:
         self.epsilon_decay = EPSILON_DECAY
         self.learning_rate = LEARNING_RATE
         self.memory = deque(maxlen=REPLAY_BUFFER_SIZE)
+        self.in_channels = in_channels
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Usando il device: {self.device}")
 
         # Inizializziamo la CNN con 2 canali in input
-        self.model = CNNQNetwork(grid_size, action_size).to(self.device)
-        self.target_model = CNNQNetwork(grid_size, action_size).to(self.device)
+        self.model = CNNQNetwork(grid_size, action_size, in_channels).to(self.device)
+        self.target_model = CNNQNetwork(grid_size, action_size, in_channels).to(self.device)
         self._hard_update_target()
 
         self.criterion = nn.MSELoss()
@@ -126,18 +128,18 @@ class DQNAgent:
 ###############################################################################
 #                    FUNZIONE DI TRAINING CON CNN
 ###############################################################################
-def train_dqn(env, episodes=EPISODES, batch_size=BATCH_SIZE):
+def train_dqn(env, episodes=EPISODES, batch_size=BATCH_SIZE, in_channels = 3):
     # ora observation_space.shape = (2, grid_size, grid_size)
     grid_size = env.observation_space.shape[1]  # la dimensione spaziale è al secondo posto (2, H, W) => H=grid_size
     action_size = env.action_space.n
-
-    agent = DQNAgent(action_size=action_size, grid_size=grid_size)
+    print("in_channels:s ", in_channels)
+    agent = DQNAgent(action_size=action_size, grid_size=grid_size, in_channels=in_channels)
 
     # Per salvare reward e loss
     all_rewards = []
     all_losses = []
 
-    writer = SummaryWriter(log_dir='runs/CatchExperimentCNN')
+    writer = SummaryWriter(log_dir='runs/CatchExperimentCNN_2')
 
     for e in range(episodes):
         state, _ = env.reset()  # state: shape (2, grid_size, grid_size)
@@ -239,7 +241,8 @@ if __name__ == "__main__":
 
     mode = input("Choose mode (train/human): ").strip().lower()
     if mode == "train":
-        train_dqn(env)
+        print(env.in_channels)
+        train_dqn(env, in_channels =env.in_channels)
     elif mode == "human":
         play_human(env)
     else:

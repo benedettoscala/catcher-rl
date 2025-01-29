@@ -1,132 +1,252 @@
 import numpy as np
 import logging
 from collections import deque
-import pickle
 from tensorboardX import SummaryWriter
-from environment.catcher_discretized import CatchEnv  # Usa il tuo file del tuo env
+import os
+import sys
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+# Aggiungi il percorso del modulo
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
+from environment.catcher_discrete import CatchEnvChangeDirection # Usa il tuo file del tuo env
+from environment.catcher_discrete import CatchEnv  # Usa il tuo file del tuo env
 
-# Inizializzazione di TensorBoardX
-writer = SummaryWriter(logdir="runs/sarsa_training")
+class SarsaTrainer:
+    def __init__(self,
+                 grid_size=15,
+                 max_objects_in_state=2,
+                 render_mode="none",
+                 alpha=0.1,
+                 gamma=0.99,
+                 epsilon=0.1,
+                 n_episodes=1000000,
+                 save_interval=10000,
+                 logdir="runs/sarsa_training",
+                 rolling_window=100,
+                 direction_on=True):
+        # Configura il logging
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+        self.logger = logging.getLogger(__name__)
 
-# Creiamo l'ambiente
-env = CatchEnv(
-    grid_size=15,
-      # 3 bin di velocità
-    render_mode="none" # o "human" per vedere la grafica (più lento)
-)
+        # Inizializzazione di TensorBoardX
+        self.writer = SummaryWriter(logdir=logdir)
 
-# Parametri SARSA
-alpha = 0.1
-gamma = 0.99
-epsilon = 0.1
-n_episodes = 500000   # Attenzione ai tempi e memoria
+        if direction_on:
+            self.env = CatchEnvChangeDirection(
+                grid_size=grid_size,
+                max_objects_in_state=max_objects_in_state,
+                render_mode=render_mode
+            )
+        else:
+            self.env = CatchEnv(
+                grid_size=grid_size,
+                max_objects_in_state=max_objects_in_state,
+                render_mode=render_mode
+            )
 
-num_actions = env.action_space.n  # 3
-grid_size = env.grid_size         # 10
-offset = env.offset               # 10 -> row va [0..19]
-speed_bins = env.speed_bins       # 3
+        # Creiamo l'ambiente
+        self.env = CatchEnv(
+            grid_size=grid_size,
+            max_objects_in_state=max_objects_in_state,
+            render_mode=render_mode
+        )
 
-# Calcoliamo le dimensioni di ogni "asse" dello stato
-row_size = grid_size - 1 + offset + 1  # 20
-col_size = grid_size                  # 10
-type_size = 2                         # 0=frutto,1=bomba
-speed_size = speed_bins               # 3
+        # Verifica se l'ambiente ha l'attributo 'direction'
+        self.direction = getattr(self.env, 'direction', False)  # Imposta True se direction non è definito
+        self.logger.info(f"Ambiente con direzione: {self.direction}")
 
-# Costruiamo la shape di Q:
-#  [ basket, row1, col1, type1, speed1, row2, col2, type2, speed2, action ]
-Q_shape = (
-    grid_size,
-    row_size, col_size, type_size, speed_size,
-    row_size, col_size, type_size, speed_size,
-    num_actions
-)
-logging.info(f"Q-table shape = {Q_shape}, totale elementi = {np.prod(Q_shape):,}")
+        # Parametri SARSA
+        self.alpha = alpha
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.n_episodes = n_episodes
+        self.save_interval = save_interval
 
-# Creiamo l'array Q
-Q = np.random.rand(*Q_shape)
+        # Altri parametri
+        self.num_actions = self.env.action_space.n
+        self.grid_size = self.env.grid_size
+        self.offset = self.env.offset
+        self.speed_bins = self.env.speed_bins
+        if self.direction:
+            self.h_speed_bins = self.env.h_speed_bins
 
-def obs_to_indices(obs):
-    """
-    Converte l'osservazione in una tupla di 8 interi (senza l'azione).
-    Formato: obs = [basket, row1, col1, type1, speed1, row2, col2, type2, speed2]
-    """
-    (basket_pos,
-     row1, col1, type1, speed1,
-     row2, col2, type2, speed2) = obs
+        self.direction_size = 2  # 0 o 1
 
-    return (basket_pos,
-            row1, col1, type1, speed1,
-            row2, col2, type2, speed2)
+        # Calcoliamo le dimensioni di ogni "asse" dello stato
+        self.row_size = self.grid_size - 1 + self.offset + 1  # 15 -1 +10 +1 = 25
+        self.col_size = self.grid_size  # 15
+        self.type_size = 2  # 0=frutto, 1=bomba
+        self.speed_size = self.speed_bins  # 3
+        if self.direction:
+            self.h_speed_size = self.h_speed_bins  # 3
 
-def epsilon_greedy(state_idx, Q, epsilon):
-    """
-    state_idx è una tupla (basket, row1, col1, type1, speed1, row2, col2, type2, speed2).
-    Restituisce un'azione in [0..num_actions-1] in modo epsilon-greedy.
-    """
-    if np.random.rand() < epsilon:
-        return np.random.randint(num_actions)
+        # Costruiamo la shape di Q:
+        if self.direction:
+            self.Q_shape = (
+                self.grid_size,
+                self.row_size, self.col_size, self.type_size, self.speed_size, self.h_speed_size,
+                self.row_size, self.col_size, self.type_size, self.speed_size, self.h_speed_size,
+                self.num_actions
+            )
+        else:
+            self.Q_shape = (
+                self.grid_size,
+                self.row_size, self.col_size, self.type_size, self.speed_size,
+                self.row_size, self.col_size, self.type_size, self.speed_size,
+                self.num_actions
+            )
+
+        self.logger.info(f"Q-table shape = {self.Q_shape}, totale elementi = {np.prod(self.Q_shape):,}")
+
+        # Creiamo l'array Q inizializzato a zero
+        self.Q = np.zeros(self.Q_shape, dtype=np.float32)
+
+        # Storico delle ricompense e degli errori TD
+        self.rolling_window = rolling_window
+        self.reward_history = deque(maxlen=self.rolling_window)
+        self.td_error_history = deque(maxlen=self.rolling_window)
+
+    def obs_to_indices(self, obs):
+        """
+        Converte l'osservazione in una tupla di interi per indicizzare la Q-table.
+        """
+        if self.direction:
+            (basket_pos,
+             row1, col1, type1, v_speed1, h_speed1,
+             row2, col2, type2, v_speed2, h_speed2) = obs
+            return (
+                basket_pos,
+                row1, col1, type1, v_speed1, h_speed1,
+                row2, col2, type2, v_speed2, h_speed2
+            )
+        else:
+            (basket_pos,
+             row1, col1, type1, speed1,
+             row2, col2, type2, speed2) = obs
+            return (
+                basket_pos,
+                row1, col1, type1, speed1,
+                row2, col2, type2, speed2
+            )
+
+    def epsilon_greedy(self, state_idx):
+        """
+        Seleziona un'azione usando una politica epsilon-greedy.
+        """
+        if np.random.rand() < self.epsilon:
+            return np.random.randint(self.num_actions)
+        else:
+            return np.argmax(self.Q[state_idx])
+
+    def save_q_table(self, episode):
+        """
+        Salva la Q-table in un file NumPy.
+        """
+        save_path = f"q_table_episode_{episode}.npy"
+        np.save(save_path, self.Q)
+        self.logger.info(f"Q-table salvata in {save_path}")
+
+    def train(self):
+        """
+        Esegue il ciclo di addestramento SARSA.
+        """
+        self.logger.info("Inizio training SARSA con array NumPy multidimensionale...")
+
+        for episode in range(1, self.n_episodes + 1):
+            obs, _ = self.env.reset()
+            try:
+                s_idx = self.obs_to_indices(obs)
+            except ValueError as e:
+                self.logger.error(f"Errore nell'osservazione durante il reset: {e}")
+                continue  # Salta all'episodio successivo
+
+            a = self.epsilon_greedy(s_idx)
+            done = False
+            total_reward = 0
+
+            while not done:
+                next_obs, reward, done, _, _ = self.env.step(a)
+                try:
+                    s_next_idx = self.obs_to_indices(next_obs)
+                except ValueError as e:
+                    self.logger.error(f"Errore nell'osservazione durante il passo: {e}")
+                    s_next_idx = s_idx  # Mantieni lo stato corrente
+                    done = True  # Termina l'episodio
+
+                # Scegli la prossima azione con SARSA
+                if not done:
+                    a_next = self.epsilon_greedy(s_next_idx)
+                else:
+                    a_next = 0  # Placeholder per il calcolo successivo
+
+                # Aggiorna Q (SARSA)
+                try:
+                    old_val = self.Q[s_idx + (a,)]
+                except IndexError:
+                    self.logger.error(f"Indice Q non valido: {s_idx + (a,)}")
+                    break  # Termina l'episodio in caso di errore
+
+                if done:
+                    td_target = reward
+                else:
+                    td_target = reward + self.gamma * self.Q[s_next_idx + (a_next,)]
+                td_error = td_target - old_val
+                self.Q[s_idx + (a,)] += self.alpha * td_error
+
+                # Passo successivo
+                s_idx = s_next_idx
+                a = a_next
+                total_reward += reward
+
+            self.reward_history.append(total_reward)
+            self.td_error_history.append(td_error)
+
+            # Logging periodico
+            if episode % 1000 == 0:
+                avg_reward = np.mean(self.reward_history)
+                avg_td_error = np.mean(self.td_error_history)
+
+                self.logger.info(
+                    f"Episodio {episode}/{self.n_episodes} - "
+                    f"Reward Totale: {total_reward:.2f} - "
+                    f"Reward medio: {avg_reward:.2f} - "
+                    f"TD Error medio: {avg_td_error:.4f}"
+                )
+                self.writer.add_scalar("reward", total_reward, episode)
+                self.writer.add_scalar("avg_reward", avg_reward, episode)
+                self.writer.add_scalar("avg_td_error", avg_td_error, episode)
+
+            # Salva la Q-table periodicamente
+            if episode % self.save_interval == 0:
+                self.save_q_table(episode)
+
+        self.logger.info("Training completato.")
+
+        # Salviamo la Q-table finale in un file NumPy
+        final_save_path = "q_table_final.npy"
+        with open(final_save_path, "wb") as f:
+            np.save(f, self.Q)
+        self.logger.info(f"Q-table salvata in {final_save_path}")
+
+    def close(self):
+        """
+        Chiude TensorBoard e l'ambiente.
+        """
+        self.writer.close()
+        self.env.close()
+
+if __name__ == "__main__":
+    #fai scegliere all'utente su che tipo di ambiente addestrare il modello del cazzo
+    choice = input("Scegliere l'ambiente su cui addestrare il modello: 1) CatchEnv 2) CatchEnvChangeDirection: ")
+    
+    if choice == "1":
+        trainer = SarsaTrainer(direction_on=False, logdir="runs/sarsa_training_catchenv")
+    elif choice == "2":
+        trainer = SarsaTrainer(direction_on=True, logdir="runs/sarsa_training_catchenv_changedirection")
     else:
-        # Q[state_idx] è un vettore di dimensione num_actions
-        return np.argmax(Q[state_idx])
+        print("Scelta non valida.")
+        sys.exit(1)
 
-rolling_window = 100
-reward_history = deque(maxlen=rolling_window)
-td_error_history = deque(maxlen=rolling_window)
-
-logging.info("Inizio training SARSA con array NumPy multidimensionale...")
-
-for episode in range(n_episodes):
-    obs, _ = env.reset()
-    s_idx = obs_to_indices(obs)
-    a = epsilon_greedy(s_idx, Q, epsilon)
-    done = False
-
-    total_reward = 0
-
-    while not done:
-        next_obs, reward, done, _, _ = env.step(a)
-        s_next_idx = obs_to_indices(next_obs)
-
-        # Scegli la prossima azione col SARSA
-        if not done:
-            a_next = epsilon_greedy(s_next_idx, Q, epsilon)
-        else:
-            a_next = 0  # placeholder per il calcolo successivo
-
-        # Aggiorna Q (SARSA)
-        old_val = Q[s_idx + (a,)]
-        if done:
-            td_target = reward
-        else:
-            td_target = reward + gamma * Q[s_next_idx + (a_next,)]
-        td_error = td_target - old_val
-        Q[s_idx + (a,)] = old_val + alpha * (td_error)
-        
-        # Passo successivo
-        s_idx = s_next_idx
-        a = a_next
-        total_reward += reward
-
-    reward_history.append(total_reward)
-    td_error_history.append(td_error)
-
-    if (episode+1) % 1000 == 0:
-        avg_reward = np.mean(reward_history)
-        avg_td_error = np.mean(td_error_history)
-
-        logging.info(f"Episodio {episode+1}/{n_episodes} - Reward Totale: {total_reward:.2f} - Reward medio: {avg_reward:.2f} - TD Error medio: {avg_td_error}")
-        writer.add_scalar("reward", total_reward, episode)
-        writer.add_scalar("avg_reward", avg_reward, episode)
-        writer.add_scalar("avg_td_error", avg_td_error, episode)
-
-logging.info("Training completato.")
-
-# Salviamo la Q-table in un file NumPy
-with open("q_table_multi.npy", "wb") as f:
-    np.save(f, Q)
-logging.info("Q-table salvata in q_table_multi.npy")
-
-writer.close()
-env.close()
+    try:
+        trainer.train()
+    finally:
+        trainer.close()

@@ -8,7 +8,7 @@ import numpy as np
 # Adjust the paths if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 
-from environment.catcher_cnn import CatchEnv
+from environment.catcher_image import CatchEnvImage as CatchEnv  # Ensure this matches your training import
 from networks.QNetwork import CNNQNetwork  # Ensure this matches your training import
 
 def load_and_play_model(env, model_path="cnn_dqn_model.pth"):
@@ -22,9 +22,10 @@ def load_and_play_model(env, model_path="cnn_dqn_model.pth"):
     # and action_size = 3 (LEFT, STAY, RIGHT)
     grid_size = env.grid_size
     action_size = env.action_space.n
+    in_channels = env.in_channels
 
     # Create the same model architecture as during training
-    model = CNNQNetwork(grid_size=grid_size, action_size=action_size).to(device)
+    model = CNNQNetwork(grid_size=grid_size, action_size=action_size, in_channels=in_channels).to(device)
     
     # Load state dict
     if not os.path.exists(model_path):
