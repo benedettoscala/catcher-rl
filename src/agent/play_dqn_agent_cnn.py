@@ -8,7 +8,7 @@ import numpy as np
 # Adjust the paths if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 
-from environment.catcher_image import CatchEnvImage as CatchEnv  # Ensure this matches your training import
+from environment.catcher_image import CatchEnvImageChangeDirection as CatchEnv  # Ensure this matches your training import
 from networks.QNetwork import CNNQNetwork  # Ensure this matches your training import
 
 def load_and_play_model(env, model_path="cnn_dqn_model.pth"):
@@ -70,10 +70,10 @@ def load_and_play_model(env, model_path="cnn_dqn_model.pth"):
 
 def main():
     # Same grid_size you used during training
-    env = CatchEnv(grid_size=20)
+    env = CatchEnv(grid_size=15)
 
     # Path to the .pth file you saved during training
-    model_path = "cnn_dqn_model.pth"
+    model_path = "src/dqn_cnn_models/direction/dqn_model_ep600.pth"
 
     load_and_play_model(env, model_path)
 

@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 LEFT = -1
 STAY = 0
 RIGHT = 1
-TIME_LIMIT = 300
+TIME_LIMIT = 500
 
 class CatchEnvBase(gym.Env, ABC):
     """

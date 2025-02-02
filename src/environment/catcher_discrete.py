@@ -111,7 +111,6 @@ class CatchEnvChangeDirection(CatchEnv):
                  max_h_speed=1.0,
                  direction=True,
                  **kwargs):
-        print("Palle")
         self.direction=direction
         self.h_speed_bins = h_speed_bins
         self.min_h_speed = min_h_speed

@@ -10,18 +10,20 @@ from tensorboardX import SummaryWriter
 import pygame
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-from environment.catcher_image import CatchEnvImageChangeDirection as CatchEnv
+from environment.catcher_image import CatchEnvImageChangeDirection
+from environment.catcher_image import CatchEnvImage
 from networks.QNetwork import CNNQNetwork
 
 # Parametri generali
 REPLAY_BUFFER_SIZE = 30000
 BATCH_SIZE = 64
 LEARNING_RATE = 0.0001
-EPISODES = 600
-EPSILON_DECAY = 0.9995
+EPISODES = 1000
+# EPSILON_DECAY = 0.9995  # Removed exponential decay
 MIN_EPSILON = 0.01
 GAMMA = 0.99
 TAU = 0.001  # Tasso di soft update (Polyak)
+EPSILON_DECAY_EPISODES = 700  # Number of episodes over which to decay epsilon
 
 ###############################################################################
 #                      AGENTE DQN CON CNN (MODIFICATO)
@@ -33,7 +35,7 @@ class DQNAgent:
         self.gamma = GAMMA
         self.epsilon = 1.0
         self.epsilon_min = MIN_EPSILON
-        self.epsilon_decay = EPSILON_DECAY
+        # self.epsilon_decay = EPSILON_DECAY  # Removed exponential decay
         self.learning_rate = LEARNING_RATE
         self.memory = deque(maxlen=REPLAY_BUFFER_SIZE)
         self.in_channels = in_channels
@@ -41,6 +43,7 @@ class DQNAgent:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Usando il device: {self.device}")
 
+        print(f"I channels sono {in_channels}")
         # Inizializziamo la CNN con 2 canali in input
         self.model = CNNQNetwork(grid_size, action_size, in_channels).to(self.device)
         self.target_model = CNNQNetwork(grid_size, action_size, in_channels).to(self.device)
@@ -117,10 +120,10 @@ class DQNAgent:
         # Aggiorniamo la rete target con soft update
         self._soft_update_target()
 
-        # Decadimento epsilon
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-            self.epsilon = max(self.epsilon, self.epsilon_min)
+        # Removed epsilon decay from replay
+        # if self.epsilon > self.epsilon_min:
+        #     self.epsilon *= self.epsilon_decay
+        #     self.epsilon = max(self.epsilon, self.epsilon_min)
 
         return loss.item()
 
@@ -128,18 +131,24 @@ class DQNAgent:
 ###############################################################################
 #                    FUNZIONE DI TRAINING CON CNN
 ###############################################################################
-def train_dqn(env, episodes=EPISODES, batch_size=BATCH_SIZE, in_channels = 3):
+def train_dqn(env, logdir, savedir, episodes=EPISODES, batch_size=BATCH_SIZE):
+    # Check if savedir exists 
+    if not os.path.exists(savedir):
+        os.makedirs(savedir)
+    
     # ora observation_space.shape = (2, grid_size, grid_size)
     grid_size = env.observation_space.shape[1]  # la dimensione spaziale è al secondo posto (2, H, W) => H=grid_size
     action_size = env.action_space.n
-    print("in_channels:s ", in_channels)
-    agent = DQNAgent(action_size=action_size, grid_size=grid_size, in_channels=in_channels)
+    agent = DQNAgent(action_size=action_size, grid_size=grid_size, in_channels=env.in_channels)
 
     # Per salvare reward e loss
     all_rewards = []
     all_losses = []
 
-    writer = SummaryWriter(log_dir='runs/CatchExperimentCNN_2')
+    writer = SummaryWriter(log_dir=logdir)
+
+    # Calcola quanto diminuire epsilon ogni episodio
+    epsilon_step = (agent.epsilon - agent.epsilon_min) / EPSILON_DECAY_EPISODES
 
     for e in range(episodes):
         state, _ = env.reset()  # state: shape (2, grid_size, grid_size)
@@ -182,10 +191,22 @@ def train_dqn(env, episodes=EPISODES, batch_size=BATCH_SIZE, in_channels = 3):
               f"Rolling: {rolling_mean:.2f}, "
               f"Epsilon: {agent.epsilon:.3f}, "
               f"Loss: {total_loss:.4f}")
+        
+        # Decadimento epsilon lineare basato su EPSILON_DECAY_EPISODES
+        if e < EPSILON_DECAY_EPISODES:
+            agent.epsilon -= epsilon_step
+            agent.epsilon = max(agent.epsilon, agent.epsilon_min)
+        else:
+            agent.epsilon = agent.epsilon_min  # Ensure epsilon stays at min after decay period
+
+        # Save the model every 10 episodes
+        if (e + 1) % 10 == 0:
+            torch.save(agent.model.state_dict(), os.path.join(savedir, f"dqn_model_ep{e+1}.pth"))
+            print(f"Modello CNN salvato in {savedir}")
 
     # Salvataggio finale
-    torch.save(agent.model.state_dict(), "cnn_dqn_model.pth")
-    print("Modello CNN salvato in cnn_dqn_model.pth")
+    torch.save(agent.model.state_dict(), os.path.join(savedir, "dqn_model_final.pth"))
+    print(f"Modello CNN salvato in {savedir}")
 
     writer.close()
 
@@ -237,13 +258,27 @@ def play_human(env):
 ###############################################################################
 if __name__ == "__main__":
     # Assicurati che il tuo CatchEnv restituisca osservazioni di shape (2, grid_size, grid_size)
-    env = CatchEnv(grid_size=20)
+    
+    # Fai scegliere all'utente che tipo di ambiente vuole usare
+    choice = input("Scegliere l'ambiente da utilizzare: 1) CatchEnv 2) CatchEnvImageChangeDirection: ")
+    # Se la cartella models non esiste, creala
+    savedir = "dqn_cnn_models"
+    if not os.path.exists(savedir):
+        os.makedirs(savedir)
+    
+    if choice == "1":
+        env = CatchEnvImage(grid_size=15)
 
-    mode = input("Choose mode (train/human): ").strip().lower()
-    if mode == "train":
-        print(env.in_channels)
-        train_dqn(env, in_channels =env.in_channels)
-    elif mode == "human":
-        play_human(env)
+        no_direction_savedir = os.path.join(savedir, "no_direction")
+        if not os.path.exists(no_direction_savedir):
+            os.makedirs(no_direction_savedir)
+        train_dqn(env, logdir="runs/cnn_dqn_catchenv", savedir=no_direction_savedir)
+        
+    elif choice == "2":
+        env = CatchEnvImageChangeDirection(grid_size=15)
+        direction_savedir = os.path.join(savedir, "direction")
+        if not os.path.exists(direction_savedir):
+            os.makedirs(direction_savedir)
+        train_dqn(env, logdir="runs/cnn_dqn_catchenv_with_direction", savedir=direction_savedir)
     else:
-        print("Invalid mode. Choose 'train' or 'human'.")
+        print("Scelta non valida. Uscita.")

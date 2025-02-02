@@ -19,12 +19,20 @@ class SarsaTrainer:
                  gamma=0.99,
                  epsilon=1.0,  # Inizializza epsilon a 1 per massima esplorazione
                  epsilon_min=0.01,  # Valore minimo di epsilon
-                 decay_rate=0.9999,  # Tasso di decadimento per episodio
-                 n_episodes=100000,  # Aumentato per consentire il decadimento
-                 save_interval=10000,
+                 decay_rate=0.9999,  # Tasso di decadimento per episodio (non più utilizzato per decadimento lineare)
+                 n_episodes=2000000,  # Aumentato per consentire il decadimento
+                 save_interval=100000,
                  logdir="runs/sarsa_training",
                  rolling_window=100,
-                 direction_on=True):
+                 direction_on=True,
+                 stop_epsilon_decay_episode=700000):
+        
+        self.epsilon = epsilon
+        self.epsilon_min = epsilon_min
+        self.stop_epsilon_decay_episode = stop_epsilon_decay_episode
+
+    #    Calcolo delta_epsilon per scendere linearmente da epsilon a epsilon_min in (stop_epsilon_decay_episode) passi
+        self.delta_epsilon = (self.epsilon - self.epsilon_min) / self.stop_epsilon_decay_episode
         # Configura il logging
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
         self.logger = logging.getLogger(__name__)
@@ -54,9 +62,11 @@ class SarsaTrainer:
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_min = epsilon_min
-        self.decay_rate = decay_rate
         self.n_episodes = n_episodes
         self.save_interval = save_interval
+
+        # Calcolo della diminuzione lineare di epsilon
+        self.logger.info(f"Delta Epsilon per decadimento lineare: {self.delta_epsilon}")
 
         # Altri parametri
         self.num_actions = self.env.action_space.n
@@ -94,8 +104,8 @@ class SarsaTrainer:
 
         self.logger.info(f"Q-table shape = {self.Q_shape}, totale elementi = {np.prod(self.Q_shape):,}")
 
-        # Creiamo l'array Q inizializzato a zero
-        self.Q = np.zeros(self.Q_shape, dtype=np.float32)
+        # Creiamo l'array Q con valori inizializzati random e con numeri float32
+        self.Q = np.random.uniform(low=-1, high=1, size=self.Q_shape).astype(np.float32)
 
         # Storico delle ricompense e degli errori TD
         self.rolling_window = rolling_window
@@ -140,20 +150,24 @@ class SarsaTrainer:
             self.logger.debug(f"Sfruttamento: azione scelta {action} con Q-valore {self.Q[state_idx + (action,)]}")
             return action
 
-    def update_epsilon(self):
-        """
-        Aggiorna il valore di epsilon diminuendolo progressivamente fino a epsilon_min.
-        """
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.decay_rate
+    def update_epsilon(self, episode):
+        if episode <= self.stop_epsilon_decay_episode:
+            # Effettua il decadimento lineare solo nei primi 700000 episodi
+            self.epsilon -= self.delta_epsilon
+            # Controllo di sicurezza nel caso la sottrazione scenda sotto epsilon_min
             self.epsilon = max(self.epsilon, self.epsilon_min)
-            self.logger.debug(f"Epsilon aggiornato a {self.epsilon}")
+        else:
+            # Oltre i 700000 episodi, epsilon rimane fisso a epsilon_min
+            self.epsilon = self.epsilon_min
 
     def save_q_table(self, episode):
         """
         Salva la Q-table in un file NumPy.
         """
-        save_path = f"q_table_episode_{episode}.npy"
+        #se il folder non esiste crealo
+        if not os.path.exists("sarsa_q_table"):
+            os.makedirs("sarsa_q_table")
+        save_path = f"sarsa_q_table/q_table_episode_{episode}.npy"
         np.save(save_path, self.Q)
         self.logger.info(f"Q-table salvata in {save_path}")
 
@@ -213,7 +227,7 @@ class SarsaTrainer:
             self.td_error_history.append(td_error)
 
             # Aggiorna epsilon dopo ogni episodio
-            self.update_epsilon()
+            self.update_epsilon(episode)
 
             # Logging periodico
             if episode % 1000 == 0:
@@ -232,6 +246,9 @@ class SarsaTrainer:
                 self.writer.add_scalar("avg_td_error", avg_td_error, episode)
                 self.writer.add_scalar("epsilon", self.epsilon, episode)
 
+            # Salvataggio periodico della Q-table
+            if episode % self.save_interval == 0:
+                self.save_q_table(episode)
 
         self.logger.info("Training completato.")
 
@@ -257,9 +274,9 @@ if __name__ == "__main__":
     choice = input("Scegliere l'ambiente su cui addestrare il modello: 1) CatchEnv 2) CatchEnvChangeDirection: ")
     
     if choice == "1":
-        trainer = SarsaTrainer(direction_on=False, logdir="runs/sarsa_training_catchenv")
+        trainer = SarsaTrainer(direction_on=False, logdir="runs/sarsa_training_catchenv_q_table", grid_size=15)
     elif choice == "2":
-        trainer = SarsaTrainer(direction_on=True, logdir="runs/sarsa_training_catchenv_changedirection")
+        trainer = SarsaTrainer(direction_on=True, logdir="runs/sarsa_training_catchenv_changedirection_q_table", grid_size=10)
     else:
         print("Scelta non valida.")
         sys.exit(1)
