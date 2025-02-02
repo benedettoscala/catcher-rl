@@ -274,11 +274,19 @@ class CatchEnvBase(gym.Env, ABC):
 
     def render(self, mode="human"):
         """
-        Renderizza lo stato corrente dell'ambiente con immagini personalizzate e mostra informazioni extra.
+        Modifica UI:
+          - Finestra allargata: scoreboard a sinistra, gioco (griglia) al centro/destra
+          - I dati testuali (vite, presi, mancati, ecc.) sono ora elencati nella sezione di sinistra
         """
+        # Dimensioni della finestra
+        WINDOW_WIDTH = 700
+        WINDOW_HEIGHT = 500
+        # Larghezza della zona scoreboard
+        SCOREBOARD_WIDTH = 200
+
         if self.window is None:
             pygame.init()
-            self.window = pygame.display.set_mode((500, 500))
+            self.window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
             pygame.display.set_caption("Catch Game")
             self.clock = pygame.time.Clock()
 
@@ -288,36 +296,54 @@ class CatchEnvBase(gym.Env, ABC):
                 self.window = None
                 return
 
-        self.window.blit(pygame.transform.scale(self.background_image, (500, 500)), (0, 0))
+        # Disegna lo sfondo su tutta la finestra
+        scaled_bg = pygame.transform.scale(self.background_image, (WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.window.blit(scaled_bg, (0, 0))
 
-        # Disegna frutti/bombe con immagini
+        # -- Disegno della “barra” scoreboard a sinistra --
+        scoreboard_rect = pygame.Rect(0, 0, SCOREBOARD_WIDTH, WINDOW_HEIGHT)
+        pygame.draw.rect(self.window, (20, 20, 20), scoreboard_rect)  # rettangolo scuro
+
+        # Stampa delle info di gioco nel riquadro a sinistra
+        font = pygame.font.Font(None, 28)
+        info_lines = [
+            f"Vite: {self.lives}",
+            f"Presi: {self.caught_objects}",
+            f"Mancati: {self.missed_objects}",
+            f"Malicious: {self.malicious_catches}",
+            f"Tempo: {self.time_limit}"
+        ]
+        # Partiamo dall'alto e lasciamo una piccola spaziatura fra le righe
+        text_y = 30
+        for line in info_lines:
+            text_surf = font.render(line, True, (255, 255, 255))
+            self.window.blit(text_surf, (20, text_y))
+            text_y += 35
+
+        # -- Zona di gioco: centriamo la griglia a destra partendo da SCOREBOARD_WIDTH --
+        board_x_offset = SCOREBOARD_WIDTH
+        board_y_offset = 0
+
+        # Disegna gli oggetti (frutti/bombe)
         for row, col, malicious in zip(self.fruit_rows, self.fruit_cols, self.fruit_is_malicious):
             row_int = int(round(row))
             col_int = int(round(col))
             if 0 <= row_int < self.grid_size and 0 <= col_int < self.grid_size:
-                fruit_pos = (col_int * self.cell_size, row_int * self.cell_size)
+                fruit_pos = (board_x_offset + col_int * self.cell_size,
+                             board_y_offset + row_int * self.cell_size)
                 if malicious:
                     self.window.blit(self.bomb_image, fruit_pos)
                 else:
                     self.window.blit(self.fruit_image, fruit_pos)
 
-        # Disegna il cestino con un rettangolo
+        # Disegna il cestino (rettangolo verde) nella zona di gioco
         basket_rect = pygame.Rect(
-            (self.basket_pos - self.basket_size // 2) * self.cell_size,
-            (self.grid_size - 1) * self.cell_size,
+            board_x_offset + (self.basket_pos - self.basket_size // 2) * self.cell_size,
+            board_y_offset + (self.grid_size - 1) * self.cell_size,
             self.basket_size * self.cell_size,
             self.cell_size
         )
-        pygame.draw.rect(self.window, (0, 255, 0), basket_rect)  # Cestino verde
-
-        # Mostra informazioni extra
-        font = pygame.font.Font(None, 24)
-        text_surf = font.render(
-            f"Vite: {self.lives} | Presi: {self.caught_objects} | Mancati: {self.missed_objects} | Malicious: {self.malicious_catches} | Tempo: {self.time_limit}",
-            True,
-            (255, 255, 255)
-        )
-        self.window.blit(text_surf, (10, 10))
+        pygame.draw.rect(self.window, (0, 255, 0), basket_rect)
 
         pygame.display.flip()
         self.clock.tick(self.metadata["render_fps"])
