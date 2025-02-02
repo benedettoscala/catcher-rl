@@ -52,7 +52,12 @@ def test_model(env, Q_table, direction, episodes=50):
     """
     rewards = []
     steps_per_episode = []
-    
+    success_rates = []  # Tasso di successo (oggetti catturati / totali)
+    lives_remaining = []  # Vite rimanenti alla fine di ogni episodio
+    caught_objects = []  # Numero di oggetti presi
+    missed_objects = []  # Numero di oggetti mancati
+    malicious_catches = []  # Numero di bombe catturate
+        
     for e in range(episodes):
         obs, _ = env.reset()
         total_reward = 0
@@ -73,49 +78,72 @@ def test_model(env, Q_table, direction, episodes=50):
         
         rewards.append(total_reward)
         steps_per_episode.append(steps)
+        success_rates.append(env.caught_objects / max(1, (env.caught_objects + env.missed_objects)))
+        lives_remaining.append(env.lives)
+        caught_objects.append(env.caught_objects)
+        missed_objects.append(env.missed_objects)
+        malicious_catches.append(env.malicious_catches)
         print(f"Episodio {e+1}/{episodes} - Ricompensa: {total_reward}, Steps: {steps}")
     
-    return rewards, steps_per_episode
+    return rewards, steps_per_episode, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches
 
-def plot_results(rewards, steps):
-    """
-    Visualizza due grafici:
-      - Ricompensa totale per episodio
-      - Numero di steps per episodio
-    """
-    episodes = np.arange(1, len(rewards)+1)
+def plot_results(rewards, steps, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches):
+    episodes = np.arange(1, len(rewards) + 1)
     
-    plt.figure(figsize=(12,5))
+    plt.figure(figsize=(15, 10))
     
-    # Grafico della ricompensa per episodio
-    plt.subplot(1,2,1)
+    plt.subplot(2, 3, 1)
     plt.plot(episodes, rewards, marker='o', linestyle='-', color='blue')
     plt.title("Ricompensa per Episodio")
     plt.xlabel("Episodio")
     plt.ylabel("Ricompensa Totale")
     plt.grid(True)
     
-    # Grafico degli steps per episodio
-    plt.subplot(1,2,2)
+    plt.subplot(2, 3, 2)
     plt.plot(episodes, steps, marker='o', linestyle='-', color='orange')
     plt.title("Steps per Episodio")
     plt.xlabel("Episodio")
     plt.ylabel("Numero di Steps")
     plt.grid(True)
     
+    plt.subplot(2, 3, 3)
+    plt.plot(episodes, np.array(success_rates) * 100, marker='o', linestyle='-', color='green')
+    plt.title("Tasso di Successo (%)")
+    plt.xlabel("Episodio")
+    plt.ylabel("Success Rate (%)")
+    plt.grid(True)
+    
+    plt.subplot(2, 3, 4)
+    plt.plot(episodes, lives_remaining, marker='o', linestyle='-', color='red')
+    plt.title("Vite Rimanenti")
+    plt.xlabel("Episodio")
+    plt.ylabel("Numero di Vite")
+    plt.grid(True)
+    
+    plt.subplot(2, 3, 5)
+    plt.plot(episodes, caught_objects, marker='o', linestyle='-', color='purple')
+    plt.title("Oggetti Presi")
+    plt.xlabel("Episodio")
+    plt.ylabel("Numero di Oggetti Presi")
+    plt.grid(True)
+    
+    plt.subplot(2, 3, 6)
+    plt.plot(episodes, missed_objects, marker='o', linestyle='-', color='brown')
+    plt.title("Oggetti Mancati")
+    plt.xlabel("Episodio")
+    plt.ylabel("Numero di Oggetti Mancati")
+    plt.grid(True)
+    
     plt.tight_layout()
     plt.show()
 
 def main():
-    print("Scegliere l'ambiente per il test:")
-    print("1) CatchEnv")
-    print("2) CatchEnvChangeDirection")
-    choice = input("Inserisci la tua scelta (1 o 2): ")
+    choice = "1"
     
     if choice == "1":
         env = CatchEnv(grid_size=15, max_objects_in_state=2, render_mode="none")
         direction = False
-        q_table_file = "q_table_final.npy"
+        q_table_file = "models/best_sarsa_q_table_model/q_table_final.npy"
     elif choice == "2":
         env = CatchEnvChangeDirection(grid_size=15, max_objects_in_state=2, render_mode="none")
         direction = True
@@ -138,10 +166,9 @@ def main():
         print("Input non valido. Verranno eseguiti 50 episodi.")
         episodes = 50
     
-    rewards, steps = test_model(env, Q_table, direction, episodes)
+    rewards, steps, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches = test_model(env, Q_table, direction, episodes)
     env.close()
-    
-    plot_results(rewards, steps)
+    plot_results(rewards, steps, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches)
 
 if __name__ == "__main__":
     main()

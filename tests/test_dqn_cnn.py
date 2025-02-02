@@ -15,6 +15,16 @@ def test_model(env, model_path, episodes=50):
     Carica il modello da 'model_path' e testa l'agente per un numero di episodi,
     restituendo le ricompense totali e il numero di passi per episodio.
     """
+    
+    rewards = []
+    steps_per_episode = []
+    success_rates = []  # Tasso di successo (oggetti catturati / totali)
+    lives_remaining = []  # Vite rimanenti alla fine di ogni episodio
+    caught_objects = []  # Numero di oggetti presi
+    missed_objects = []  # Numero di oggetti mancati
+    malicious_catches = []  # Numero di bombe catturate
+    
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Utilizzo device: {device}")
 
@@ -39,7 +49,7 @@ def test_model(env, model_path, episodes=50):
 
         while not done:
            
-            env.render()
+            #env.render()
             #modifica il framerate dell'ambiente così da velocizzare il test
             env.metadata["render_fps"] = 10000
 
@@ -56,35 +66,63 @@ def test_model(env, model_path, episodes=50):
             state = next_state
 
         rewards.append(total_reward)
+        success_rates.append(env.caught_objects / max(1, (env.caught_objects + env.missed_objects)))
+        lives_remaining.append(env.lives)
+        caught_objects.append(env.caught_objects)
+        missed_objects.append(env.missed_objects)
+        malicious_catches.append(env.malicious_catches)
         steps_per_episode.append(steps)
-        print(f"Episode {e+1}/{episodes} - Reward: {total_reward}, Steps: {steps}")
+        print(f"Episode {e+1}/{episodes} - Reward: {total_reward}, Steps: {steps}, Success Rate: {success_rates[-1]*100:.2f}%, Lives Remaining: {env.lives}, Caught: {env.caught_objects}, Missed: {env.missed_objects}, Malicious Catches: {env.malicious_catches}")
 
-    return rewards, steps_per_episode
+    return rewards, steps_per_episode, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches
 
-def plot_results(rewards, steps):
-    """
-    Visualizza dei grafici della ricompensa e dei passi per episodio.
-    """
+def plot_results(rewards, steps, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches):
     episodes = np.arange(1, len(rewards) + 1)
     
-    plt.figure(figsize=(12, 5))
-
-    # Grafico della ricompensa per episodio
-    plt.subplot(1, 2, 1)
+    plt.figure(figsize=(15, 10))
+    
+    plt.subplot(2, 3, 1)
     plt.plot(episodes, rewards, marker='o', linestyle='-', color='blue')
     plt.title("Ricompensa per Episodio")
     plt.xlabel("Episodio")
     plt.ylabel("Ricompensa Totale")
     plt.grid(True)
-
-    # Grafico dei passi per episodio
-    plt.subplot(1, 2, 2)
+    
+    plt.subplot(2, 3, 2)
     plt.plot(episodes, steps, marker='o', linestyle='-', color='orange')
     plt.title("Steps per Episodio")
     plt.xlabel("Episodio")
     plt.ylabel("Numero di Steps")
     plt.grid(True)
-
+    
+    plt.subplot(2, 3, 3)
+    plt.plot(episodes, np.array(success_rates) * 100, marker='o', linestyle='-', color='green')
+    plt.title("Tasso di Successo (%)")
+    plt.xlabel("Episodio")
+    plt.ylabel("Success Rate (%)")
+    plt.grid(True)
+    
+    plt.subplot(2, 3, 4)
+    plt.plot(episodes, lives_remaining, marker='o', linestyle='-', color='red')
+    plt.title("Vite Rimanenti")
+    plt.xlabel("Episodio")
+    plt.ylabel("Numero di Vite")
+    plt.grid(True)
+    
+    plt.subplot(2, 3, 5)
+    plt.plot(episodes, caught_objects, marker='o', linestyle='-', color='purple')
+    plt.title("Oggetti Presi")
+    plt.xlabel("Episodio")
+    plt.ylabel("Numero di Oggetti Presi")
+    plt.grid(True)
+    
+    plt.subplot(2, 3, 6)
+    plt.plot(episodes, missed_objects, marker='o', linestyle='-', color='brown')
+    plt.title("Oggetti Mancati")
+    plt.xlabel("Episodio")
+    plt.ylabel("Numero di Oggetti Mancati")
+    plt.grid(True)
+    
     plt.tight_layout()
     plt.show()
 
@@ -115,11 +153,9 @@ def main():
         print("Inserimento non valido. Verrà usato il valore predefinito di 50 episodi.")
         episodes = 50
 
-    rewards, steps = test_model(env, model_path, episodes)
+    rewards, steps, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches = test_model(env, model_path, episodes)
     env.close()
-
-    # Visualizza i grafici dei risultati
-    plot_results(rewards, steps)
+    plot_results(rewards, steps, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches)
 
 if __name__ == "__main__":
     main()

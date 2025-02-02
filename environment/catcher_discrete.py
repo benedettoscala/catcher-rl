@@ -256,7 +256,7 @@ class CatchEnvChangeDirection(CatchEnv):
                         self.fruit_direction_changed[i] = 1  # Ha cambiato direzione
                 
                 # Cambia casualmente la direzione orizzontale con una certa probabilità
-                change_dir_prob = 0.0  # 5% di probabilità
+                change_dir_prob = 0.05  # 5% di probabilità
                 if np.random.rand() < change_dir_prob:
                     #le direzioni possono essere 0.05, 0.1, 0.2, -0.05, -0.1, -0.2
                     self.fruit_h_speeds[i] = np.random.choice([-0.2, -0.1, -0.05, 0.0, 0.05, 0.1, 0.2])

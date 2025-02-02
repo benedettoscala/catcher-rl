@@ -5,109 +5,123 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Aggiungi il percorso del modulo (assicurati che la struttura delle cartelle sia corretta)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from environment.catcher_discrete import CatchEnv, CatchEnvChangeDirection
 
-# Definizione della rete Q come nel training
 import torch.nn as nn
 from networks.QNetwork import QNetwork
 
 def state_to_tensor(state, direction):
-    """
-    Converte lo stato (tuple) in un tensore adatto alla rete neurale.
-    
-    Se 'direction' è True, lo stato ha 11 elementi:
-      (basket_pos, row1, col1, type1, v_speed1, h_speed1, row2, col2, type2, v_speed2, h_speed2)
-    Altrimenti, ha 9 elementi:
-      (basket_pos, row1, col1, type1, speed1, row2, col2, type2, speed2)
-    """
     if direction:
-        (basket_pos,
-         row1, col1, type1, v_speed1, h_speed1,
-         row2, col2, type2, v_speed2, h_speed2) = state
-        state_flat = [basket_pos, row1, col1, type1, v_speed1, h_speed1,
-                      row2, col2, type2, v_speed2, h_speed2]
+        state_flat = list(state)
     else:
-        (basket_pos,
-         row1, col1, type1, speed1,
-         row2, col2, type2, speed2) = state
-        state_flat = [basket_pos, row1, col1, type1, speed1,
-                      row2, col2, type2, speed2]
-    # Restituisce un tensore di shape [1, input_size]
+        state_flat = list(state)
     return torch.FloatTensor(state_flat).unsqueeze(0)
 
 def test_model(env, model, episodes, direction, device):
-    """
-    Esegue il test del modello per un certo numero di episodi.
-    Per ciascun episodio:
-      - Resetta l'ambiente
-      - Finché non è raggiunto lo stato terminale, seleziona l'azione greedy (argmax(Q))
-      - Accumula la ricompensa totale e conta gli steps
-    Restituisce due liste: ricompensa per episodio e steps per episodio.
-    """
     rewards = []
     steps_per_episode = []
+    success_rates = []  # Tasso di successo (oggetti catturati / totali)
+    lives_remaining = []  # Vite rimanenti alla fine di ogni episodio
+    caught_objects = []  # Numero di oggetti presi
+    missed_objects = []  # Numero di oggetti mancati
+    malicious_catches = []  # Numero di bombe catturate
+    
     model.eval()
     
     for e in range(episodes):
         state, _ = env.reset()
         total_reward = 0
         steps = 0
+        caught = 0
+        total_objects = 0
         done = False
-
+        
         while not done:
-            # Converte lo stato in tensore
+            #env.render()
             state_tensor = state_to_tensor(state, direction).to(device)
             with torch.no_grad():
                 q_values = model(state_tensor)
-            # Selezione greedy: azione con il valore Q massimo
             action = torch.argmax(q_values, dim=1).item()
-
-            next_state, reward, done, _, _ = env.step(action)
+            
+            next_state, reward, done, _, info = env.step(action)
             total_reward += reward
             steps += 1
+            
+            if reward > 0:
+                caught += 1
+            total_objects += 1
             state = next_state
-
+        
         rewards.append(total_reward)
         steps_per_episode.append(steps)
-        print(f"Episode {e+1}/{episodes} - Reward: {total_reward}, Steps: {steps}")
+        success_rates.append(env.caught_objects / max(1, (env.caught_objects + env.missed_objects)))
+        lives_remaining.append(env.lives)
+        caught_objects.append(env.caught_objects)
+        missed_objects.append(env.missed_objects)
+        malicious_catches.append(env.malicious_catches)
         
-    return rewards, steps_per_episode
+        print(f"Episode {e+1}/{episodes} - Reward: {total_reward}, Steps: {steps}, Success Rate: {success_rates[-1]*100:.2f}%, Lives Remaining: {env.lives}, Caught: {env.caught_objects}, Missed: {env.missed_objects}, Malicious Catches: {env.malicious_catches}")
 
-def plot_results(rewards, steps):
-    """
-    Visualizza i grafici della ricompensa e del numero di steps per episodio.
-    """
+    return rewards, steps_per_episode, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches
+
+def plot_results(rewards, steps, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches):
     episodes = np.arange(1, len(rewards) + 1)
     
-    plt.figure(figsize=(12, 5))
+    plt.figure(figsize=(15, 10))
     
-    # Grafico della ricompensa per episodio
-    plt.subplot(1, 2, 1)
+    plt.subplot(2, 3, 1)
     plt.plot(episodes, rewards, marker='o', linestyle='-', color='blue')
     plt.title("Ricompensa per Episodio")
     plt.xlabel("Episodio")
     plt.ylabel("Ricompensa Totale")
     plt.grid(True)
     
-    # Grafico degli steps per episodio
-    plt.subplot(1, 2, 2)
+    plt.subplot(2, 3, 2)
     plt.plot(episodes, steps, marker='o', linestyle='-', color='orange')
     plt.title("Steps per Episodio")
     plt.xlabel("Episodio")
     plt.ylabel("Numero di Steps")
     plt.grid(True)
     
+    plt.subplot(2, 3, 3)
+    plt.plot(episodes, np.array(success_rates) * 100, marker='o', linestyle='-', color='green')
+    plt.title("Tasso di Successo (%)")
+    plt.xlabel("Episodio")
+    plt.ylabel("Success Rate (%)")
+    plt.grid(True)
+    
+    plt.subplot(2, 3, 4)
+    plt.plot(episodes, lives_remaining, marker='o', linestyle='-', color='red')
+    plt.title("Vite Rimanenti")
+    plt.xlabel("Episodio")
+    plt.ylabel("Numero di Vite")
+    plt.grid(True)
+    
+    plt.subplot(2, 3, 5)
+    plt.plot(episodes, caught_objects, marker='o', linestyle='-', color='purple')
+    plt.title("Oggetti Presi")
+    plt.xlabel("Episodio")
+    plt.ylabel("Numero di Oggetti Presi")
+    plt.grid(True)
+    
+    plt.subplot(2, 3, 6)
+    plt.plot(episodes, missed_objects, marker='o', linestyle='-', color='brown')
+    plt.title("Oggetti Mancati")
+    plt.xlabel("Episodio")
+    plt.ylabel("Numero di Oggetti Mancati")
+    plt.grid(True)
+    
     plt.tight_layout()
     plt.show()
+
 
 def main():
     print("Scegliere l'ambiente per il test:")
     print("1) CatchEnv")
     print("2) CatchEnvChangeDirection")
     choice = input("Inserisci la tua scelta (1 o 2): ")
-
+    
     if choice == "1":
         env = CatchEnv(grid_size=15)
         direction = False
@@ -117,41 +131,34 @@ def main():
     else:
         print("Scelta non valida. Uscita.")
         return
-
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Utilizzo device: {device}")
-
-    # Determina le dimensioni dell'input in base alla presenza del canale 'direction'
-    if direction:
-        input_size = 11  # basket_pos + 5 per il primo oggetto + 5 per il secondo
-    else:
-        input_size = 9   # basket_pos + 4 per il primo oggetto + 4 per il secondo
-
+    
+    input_size = 11 if direction else 9
     hidden_sizes = [128, 128]
     num_actions = env.action_space.n
-
-    # Inizializza la rete e carica il modello salvato
+    
     model = QNetwork(input_size, hidden_sizes, num_actions).to(device)
-
-    # Il training ha salvato il modello finale con questo nome.
-    # Se hai usato un nome diverso per l'ambiente con direction, modifica di conseguenza.
-    model_path = "models/sarsa_approximated/q_network_episode_9000.pth"
+    
+    model_path = "models/best_sarsa_approximated/direction/q_network_final.pth" if direction else "models/best_sarsa_approximated/no_direction/q_network_final.pth"
     if not os.path.exists(model_path):
         print(f"Modello non trovato in {model_path}")
         return
-
+    
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
-
+    
     try:
         episodes = int(input("Inserisci il numero di episodi di test: "))
     except ValueError:
         print("Input non valido. Verranno eseguiti 50 episodi di test.")
         episodes = 50
-
-    rewards, steps = test_model(env, model, episodes, direction, device)
+    
+    rewards, steps, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches = test_model(env, model, episodes, direction, device)
     env.close()
-    plot_results(rewards, steps)
+    plot_results(rewards, steps, success_rates, lives_remaining, caught_objects, missed_objects, malicious_catches)
+
 
 if __name__ == "__main__":
     main()

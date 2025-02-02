@@ -3,6 +3,3 @@ pygame
 numpy
 tensorboardX
 matplotlib
-torch
-torchvision
-torchaudio
