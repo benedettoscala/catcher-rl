@@ -48,3 +48,19 @@ class CNNQNetwork(nn.Module):
         x = self.fc2(x)             # out: (batch_size, action_size)
 
         return x
+    
+class QNetwork(nn.Module):
+    def __init__(self, input_size, hidden_sizes, output_size):
+        super(QNetwork, self).__init__()
+        layers = []
+        last_size = input_size
+        for hidden_size in hidden_sizes:
+            layers.append(nn.Linear(last_size, hidden_size))
+            layers.append(nn.ReLU())
+            last_size = hidden_size
+        layers.append(nn.Linear(last_size, output_size))
+        self.network = nn.Sequential(*layers)
+    
+    def forward(self, x):
+        return self.network(x)
+

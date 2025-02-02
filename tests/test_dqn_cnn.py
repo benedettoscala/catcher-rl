@@ -39,7 +39,7 @@ def test_model(env, model_path, episodes=50):
 
         while not done:
            
-            #env.render()
+            env.render()
             #modifica il framerate dell'ambiente così da velocizzare il test
             env.metadata["render_fps"] = 10000
 
