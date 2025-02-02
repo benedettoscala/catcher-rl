@@ -60,7 +60,7 @@ choice = input("Scegliere l'ambiente (catch (1) /catch_change_direction (2) ): "
 if choice == "1":
     env = CatchEnv(render_mode="human", grid_size=15)
     #apri solo il file q_table_final.npy con bfloat 32
-    with open("src/sarsa_q_table/q_table_episode_100000.npy", "rb") as f:
+    with open("models/best_sarsa_q_table_model/q_table_episode_2000000.npy", "rb") as f:
         Q = np.load(f, allow_pickle=True)
 else:
     env = CatchEnvChangeDirection(render_mode="human", grid_size=10)
