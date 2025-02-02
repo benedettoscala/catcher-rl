@@ -69,49 +69,43 @@ def plot_results(rewards, steps, success_rates, lives_remaining, caught_objects,
     episodes = np.arange(1, len(rewards) + 1)
     
     plt.figure(figsize=(15, 10))
-    
+
     plt.subplot(2, 3, 1)
-    plt.plot(episodes, rewards, marker='o', linestyle='-', color='blue')
+    plt.boxplot(rewards)
     plt.title("Ricompensa per Episodio")
-    plt.xlabel("Episodio")
     plt.ylabel("Ricompensa Totale")
     plt.grid(True)
-    
+
     plt.subplot(2, 3, 2)
-    plt.plot(episodes, steps, marker='o', linestyle='-', color='orange')
+    plt.boxplot(steps)
     plt.title("Steps per Episodio")
-    plt.xlabel("Episodio")
     plt.ylabel("Numero di Steps")
     plt.grid(True)
-    
+
     plt.subplot(2, 3, 3)
-    plt.plot(episodes, np.array(success_rates) * 100, marker='o', linestyle='-', color='green')
+    plt.boxplot(np.array(success_rates) * 100)
     plt.title("Tasso di Successo (%)")
-    plt.xlabel("Episodio")
     plt.ylabel("Success Rate (%)")
     plt.grid(True)
-    
+
     plt.subplot(2, 3, 4)
-    plt.plot(episodes, lives_remaining, marker='o', linestyle='-', color='red')
+    plt.boxplot(lives_remaining)
     plt.title("Vite Rimanenti")
-    plt.xlabel("Episodio")
     plt.ylabel("Numero di Vite")
     plt.grid(True)
-    
+
     plt.subplot(2, 3, 5)
-    plt.plot(episodes, caught_objects, marker='o', linestyle='-', color='purple')
+    plt.boxplot(caught_objects)
     plt.title("Oggetti Presi")
-    plt.xlabel("Episodio")
     plt.ylabel("Numero di Oggetti Presi")
     plt.grid(True)
-    
+
     plt.subplot(2, 3, 6)
-    plt.plot(episodes, missed_objects, marker='o', linestyle='-', color='brown')
+    plt.boxplot(missed_objects)
     plt.title("Oggetti Mancati")
-    plt.xlabel("Episodio")
     plt.ylabel("Numero di Oggetti Mancati")
     plt.grid(True)
-    
+
     plt.tight_layout()
     plt.show()
 
