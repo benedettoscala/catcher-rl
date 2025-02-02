@@ -256,7 +256,7 @@ class CatchEnvChangeDirection(CatchEnv):
                         self.fruit_direction_changed[i] = 1  # Ha cambiato direzione
                 
                 # Cambia casualmente la direzione orizzontale con una certa probabilità
-                change_dir_prob = 0.05  # 5% di probabilità
+                change_dir_prob = 0.0  # 5% di probabilità
                 if np.random.rand() < change_dir_prob:
                     #le direzioni possono essere 0.05, 0.1, 0.2, -0.05, -0.1, -0.2
                     self.fruit_h_speeds[i] = np.random.choice([-0.2, -0.1, -0.05, 0.0, 0.05, 0.1, 0.2])
@@ -305,62 +305,10 @@ class CatchEnvChangeDirection(CatchEnv):
                 self.fruit_direction_changed = []
             self.fruit_direction_changed.append(0)  # Inizialmente, nessun cambiamento di direzione
     
-    def render(self, mode="human"):
-        """
-        Renderizza lo stato corrente dell'ambiente con movimento orizzontale.
-        """
-        if self.window is None:
-            pygame.init()
-            self.window = pygame.display.set_mode((500, 500))
-            pygame.display.set_caption("Catch Game - Horizontal Movement")
-            self.clock = pygame.time.Clock()
-        
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                self.window = None
-                return
-        
-        cell_size = 500 // self.grid_size
-        self.window.fill((0, 0, 0))  # Sfondo nero
-        
-        # Disegna frutti/bombe
-        for row, col, malicious in zip(self.fruit_rows, self.fruit_cols, self.fruit_is_malicious):
-            row_int = int(round(row))
-            col_int = int(round(col))
-            if 0 <= row_int < self.grid_size and 0 <= col_int < self.grid_size:
-                fruit_rect = pygame.Rect(
-                    col_int * cell_size,
-                    row_int * cell_size,
-                    cell_size, cell_size
-                )
-                color = (255, 0, 0) if malicious else (255, 255, 0)  # Rosso per bomba, Giallo per frutto
-                pygame.draw.ellipse(self.window, color, fruit_rect)
-        
-        # Disegna il cestino
-        basket_rect = pygame.Rect(
-            max(0, int((self.basket_pos - self.basket_size // 2)) * cell_size),
-            (self.grid_size - 1) * cell_size,
-            self.basket_size * cell_size,
-            cell_size
-        )
-        pygame.draw.rect(self.window, (0, 255, 0), basket_rect)  # Cestino verde
-        
-        # Mostra informazioni
-        font = pygame.font.Font(None, 24)
-        text_surf = font.render(
-            f"Malicious catches: {self.malicious_catches} | Time left: {self.time_limit}",
-            True,
-            (255, 255, 255)
-        )
-        self.window.blit(text_surf, (10, 10))
-        
-        pygame.display.flip()
-        self.clock.tick(self.metadata["render_fps"])
 
 # Test per vedere se l'ambiente funziona renderizzato per umano
 if __name__ == "__main__":
-    env = CatchEnv(grid_size=15, render_mode="human")
+    env = CatchEnvChangeDirection(grid_size=15, render_mode="human")
     env.reset()
     done = False
     while not done:

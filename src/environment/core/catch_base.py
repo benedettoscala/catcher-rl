@@ -2,6 +2,8 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 import pygame
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from abc import ABC, abstractmethod
 
 # Costanti per le azioni
@@ -48,12 +50,33 @@ class CatchEnvBase(gym.Env, ABC):
         self.speed_bins = speed_bins
         self.basket_size = basket_size
 
+        # Carica le immagini personalizzate
+        self.background_image = pygame.image.load("assets/background.jpg")
+        self.fruit_image = pygame.image.load("assets/fruit.png")
+        self.bomb_image = pygame.image.load("assets/bomb.png")
+        
+        # Ridimensiona le immagini per adattarsi alle celle della griglia
+        self.cell_size = 500 // self.grid_size
+        self.fruit_image = pygame.transform.smoothscale(
+            self.fruit_image,
+            (int(self.fruit_image.get_width() * (self.cell_size / self.fruit_image.get_height())), self.cell_size)
+        )
+        self.bomb_image = pygame.transform.smoothscale(
+            self.bomb_image,
+            (int(self.bomb_image.get_width() * (self.cell_size / self.bomb_image.get_height())), self.cell_size)
+        )
+        
         self.time_limit = TIME_LIMIT
         self.max_objects_in_state = max_objects_in_state
 
         # Numero massimo di bombe catturate prima di terminare l'episodio
         self.max_malicious_catches = 5
         self.malicious_catches = 0
+
+        # Nuove variabili per informazioni extra
+        self.lives = 5              # Vite iniziali
+        self.missed_objects = 0     # Oggetti mancati
+        self.caught_objects = 0     # Oggetti presi
 
         # Spazio azioni: 0 (LEFT), 1 (STAY), 2 (RIGHT)
         self.action_space = spaces.Discrete(3)
@@ -108,6 +131,11 @@ class CatchEnvBase(gym.Env, ABC):
         self.basket_pos = self.grid_size // 2
         self.malicious_catches = 0
 
+        # Resetta le nuove variabili di stato
+        self.lives = 5
+        self.missed_objects = 0
+        self.caught_objects = 0
+
         # Svuota le liste degli oggetti
         self.fruit_rows.clear()
         self.fruit_cols.clear()
@@ -129,9 +157,9 @@ class CatchEnvBase(gym.Env, ABC):
         # Calcola la ricompensa e gestisce le catture/mancati
         reward = self._get_reward()
 
-        # Controlla se l'episodio deve terminare
+        # Controlla se l'episodio deve terminare (aggiunta la condizione sulle vite)
         done = False
-        if self.time_limit <= 0 or self.malicious_catches >= self.max_malicious_catches:
+        if self.time_limit <= 0 or self.malicious_catches >= self.max_malicious_catches or self.lives <= 0:
             done = True
 
         # Tenta di spawnare nuovi oggetti
@@ -152,6 +180,7 @@ class CatchEnvBase(gym.Env, ABC):
     def _get_reward(self):
         """
         Calcola la ricompensa basata sugli oggetti catturati o mancati.
+        Aggiorna inoltre i contatori di vite, oggetti presi e mancati.
         """
         reward = 0
         to_remove = []
@@ -169,14 +198,17 @@ class CatchEnvBase(gym.Env, ABC):
                     if malicious:
                         reward -= 4
                         self.malicious_catches += 1
+                        self.lives -= 1  # Penalità per aver catturato una bomba
                     else:
                         reward += 3
+                        self.caught_objects += 1
                 else:
                     # Oggetto mancato
                     if malicious:
                         reward += 0  # Nessuna penalità per bombe mancati
                     else:
                         reward -= 1
+                        self.missed_objects += 1
                 to_remove.append(i)
 
         # Rimuove gli oggetti processati
@@ -242,7 +274,7 @@ class CatchEnvBase(gym.Env, ABC):
 
     def render(self, mode="human"):
         """
-        Renderizza lo stato corrente dell'ambiente.
+        Renderizza lo stato corrente dell'ambiente con immagini personalizzate e mostra informazioni extra.
         """
         if self.window is None:
             pygame.init()
@@ -256,35 +288,32 @@ class CatchEnvBase(gym.Env, ABC):
                 self.window = None
                 return
 
-        cell_size = 500 // self.grid_size
-        self.window.fill((0, 0, 0))  # Sfondo nero
+        self.window.blit(pygame.transform.scale(self.background_image, (500, 500)), (0, 0))
 
-        # Disegna frutti/bombe
+        # Disegna frutti/bombe con immagini
         for row, col, malicious in zip(self.fruit_rows, self.fruit_cols, self.fruit_is_malicious):
             row_int = int(round(row))
             col_int = int(round(col))
             if 0 <= row_int < self.grid_size and 0 <= col_int < self.grid_size:
-                fruit_rect = pygame.Rect(
-                    col_int * cell_size,
-                    row_int * cell_size,
-                    cell_size, cell_size
-                )
-                color = (255, 0, 0) if malicious else (255, 255, 0)  # Rosso per bomba, Giallo per frutto
-                pygame.draw.ellipse(self.window, color, fruit_rect)
+                fruit_pos = (col_int * self.cell_size, row_int * self.cell_size)
+                if malicious:
+                    self.window.blit(self.bomb_image, fruit_pos)
+                else:
+                    self.window.blit(self.fruit_image, fruit_pos)
 
-        # Disegna il cestino
+        # Disegna il cestino con un rettangolo
         basket_rect = pygame.Rect(
-            (self.basket_pos - self.basket_size // 2) * cell_size,
-            (self.grid_size - 1) * cell_size,
-            self.basket_size * cell_size,
-            cell_size
+            (self.basket_pos - self.basket_size // 2) * self.cell_size,
+            (self.grid_size - 1) * self.cell_size,
+            self.basket_size * self.cell_size,
+            self.cell_size
         )
         pygame.draw.rect(self.window, (0, 255, 0), basket_rect)  # Cestino verde
 
-        # Mostra informazioni
+        # Mostra informazioni extra
         font = pygame.font.Font(None, 24)
         text_surf = font.render(
-            f"Malicious catches: {self.malicious_catches} | Time left: {self.time_limit}",
+            f"Vite: {self.lives} | Presi: {self.caught_objects} | Mancati: {self.missed_objects} | Malicious: {self.malicious_catches} | Tempo: {self.time_limit}",
             True,
             (255, 255, 255)
         )
