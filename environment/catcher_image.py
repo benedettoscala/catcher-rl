@@ -157,7 +157,7 @@ class CatchEnvImageChangeDirection(CatchEnvImage):
             change_dir_prob = 0.05  # 5% di probabilità
             if np.random.rand() < change_dir_prob:
                 #value can be -0.1 ,-0.05, -0.02 , 0 ,0.02, 0.05, 0.1
-                self.fruit_h_speeds[i] = np.random.choice([-0.1, -0.05, -0.02, 0, 0.02, 0.05, 0.1])
+                self.fruit_h_speeds[i] = np.random.choice([-0.2, -0.1, -0.05, 0.0, 0.05, 0.1, 0.2])
                 # Limita la velocità orizzontale ai limiti specificati
                 self.fruit_h_speeds[i] = np.clip(
                     self.fruit_h_speeds[i],

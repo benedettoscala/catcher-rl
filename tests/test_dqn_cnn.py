@@ -51,7 +51,7 @@ def test_model(env, model_path, episodes=50):
            
             #env.render()
             #modifica il framerate dell'ambiente così da velocizzare il test
-            env.metadata["render_fps"] = 10000
+            #env.metadata["render_fps"] = 10000
 
             # Converti lo stato in tensore e calcola i Q-values
             state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)  # shape [1, 2, grid_size, grid_size]
@@ -127,7 +127,7 @@ def main():
     print("2) CatchEnvImageChangeDirection")
     choice = input("Inserisci la tua scelta (1 o 2): ")
 
-    savedir = "models\dqn_cnn_models"
+    savedir = "models/dqn_cnn_models"
     if choice == "1":
         env = CatchEnvImage(grid_size=15)
         model_path = os.path.join(savedir, "no_direction", "dqn_model_final.pth")

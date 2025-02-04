@@ -249,10 +249,17 @@ def test_qtable_model(episodes=50):
 ##############################################
 # FUNZIONE PER LA VISUALIZZAZIONE DEI RISULTATI#
 ##############################################
+import numpy as np
+import matplotlib.pyplot as plt
+
+import numpy as np
+import matplotlib.pyplot as plt
+import threading
+
 def plot_combined_metrics(metrics_cnn, metrics_qnet, metrics_qtable):
     """
-    Crea dei grafici box plot (uno per metrica) in cui vengono messi a confronto
-    i risultati dei 3 modelli. Ogni modello è rappresentato da un colore diverso.
+    Crea box plot separati per ogni metrica, mettendo a confronto
+    i risultati dei 3 modelli in finestre diverse.
     """
     # Prepara i dati: per ogni metrica, metti in una lista i risultati dei tre modelli
     combined = {
@@ -270,38 +277,33 @@ def plot_combined_metrics(metrics_cnn, metrics_qnet, metrics_qtable):
     }
     
     # Nomi e colori dei modelli
-    model_names = ["CNN", "QNetwork", "QTable"]
+    model_names = ["DQN con CNN", "SARSA con rete neurale", "SARSA Q-Table"]
     colors = ['skyblue', 'lightgreen', 'salmon']
     
-    num_metrics = len(combined)
-    ncols = 3
-    nrows = int(np.ceil(num_metrics / ncols))
-    fig, axs = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows))
-    axs = axs.flatten()
-    
-    for i, (metric_name, data_list) in enumerate(combined.items()):
-        ax = axs[i]
-        # Crea il boxplot per i 3 modelli (posizioni 1, 2, 3)
-        bp = ax.boxplot(data_list, patch_artist=True)
+    for metric_name, data_list in combined.items():
+        plt.figure(figsize=(6, 5))  # Crea una nuova finestra per ogni metrica
+        
+        # Crea il boxplot per i 3 modelli
+        bp = plt.boxplot(data_list, patch_artist=True)
+        
         # Assegna un colore diverso a ciascuna scatola
         for patch, color in zip(bp['boxes'], colors):
             patch.set_facecolor(color)
-        ax.set_title(metric_name)
-        ax.set_xticks([1, 2, 3])
-        ax.set_xticklabels(model_names)
-        ax.grid(True)
+        
+        plt.title(metric_name)
+        plt.xticks([1, 2, 3], model_names)
+        plt.grid(True)
+        
+        # Crea una legenda personalizzata
+        import matplotlib.patches as mpatches
+        legend_handles = [mpatches.Patch(color=color, label=name) for color, name in zip(colors, model_names)]
+        plt.legend(handles=legend_handles, loc='upper right')
+        
+        plt.show(block=False)  # Mostra i grafici senza bloccare
     
-    # Se ci sono assi non utilizzati, rimuovili
-    for j in range(i+1, len(axs)):
-        fig.delaxes(axs[j])
+    plt.show()  # Mantiene aperte tutte le finestre
     
-    # Crea una legenda personalizzata
-    import matplotlib.patches as mpatches
-    legend_handles = [mpatches.Patch(color=color, label=name) for color, name in zip(colors, model_names)]
-    fig.legend(handles=legend_handles, loc='upper right')
-    
-    plt.tight_layout()
-    plt.show()
+
 
 ##############################################
 # FUNZIONE MAIN                              #
