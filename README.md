@@ -1,55 +1,57 @@
-# Catcher RL
+# Catcher-RL
 
-## Descrizione del Progetto
-Questo progetto implementa agenti di Reinforcement Learning (RL) per il gioco "Catcher" utilizzando tecniche come Deep Q-Network (DQN) e SARSA. Il codice include ambienti personalizzati, reti neurali e strumenti di valutazione per l'addestramento e la validazione degli agenti.
+Catcher-RL is a Reinforcement Learning project for the "Catcher" game implemented with various learning techniques, including DQN (Deep Q-Network) and SARSA (State-Action-Reward-State-Action). The game involves an agent that must catch falling objects on the screen, improving its behavior through reinforcement learning.
 
-## Struttura del Progetto
+## Project Structure
 
-- **`agent/`**: Contiene implementazioni di agenti RL, inclusi DQN e SARSA.
-  - `dqn_cnn.py`: Implementazione di un agente DQN con CNN.
-  - `sarsa.py`: Implementazione dell'algoritmo SARSA.
-  - `sarsa_approximated.py`: Variante di SARSA con approssimazione.
-  - `play_*`: Script per testare gli agenti.
+The project is structured into several folders:
 
-- **`environment/`**: Definisce l'ambiente di gioco "Catcher".
-  - `catcher_discrete.py`: Versione con azioni discrete.
-  - `catcher_image.py`: Versione basata su immagini.
-  - `core/catch_base.py`: Classe base per l'ambiente.
+- `agent/` : Contains reinforcement learning algorithms
+  - `dqn_cnn.py` : Implementation of DQN with CNN
+  - `play_dqn_agent.py` : Script to run a trained DQN agent
+  - `play_dqn_agent_cnn.py` : CNN version of DQN
+  - `play_sarsa.py` : Execution of the SARSA agent
+  - `play_sarsa_nn.py` : Neural network version for SARSA
+  - `sarsa.py` : Classic SARSA implementation
+  - `sarsa_approximated.py` : SARSA with function approximation
 
-- **`networks/`**: Contiene modelli di reti neurali.
-  - `QNetwork.py`: Rete neurale per Q-learning.
+- `environment/` : Contains the game simulation environment
+  - `catcher_discrete.py` : Implementation with discrete states
+  - `catcher_image.py` : Implementation with image input
+  - `core/catch_base.py` : Base of the game environment
 
-- **`metrics/`**: Grafici delle metriche di addestramento (PDF).
+- `assets/` : Contains background images and game objects
 
-- **`tensorboard_runs/`**: Log per TensorBoard.
+- `metrics/` : Contains graphs and experiment metrics
 
-- **`tests/`**: Contiene test.
-  - `test_dqn_cnn.py`: Test per DQN.
-  - `test_q_sarsa_approximated.py`: Test per SARSA.
+- `networks/` : Contains the neural network definitions used for DQN
+  - `QNetwork.py` : Network model for the DQN algorithm
 
-- **`assets/`**: Contiene immagini di gioco (sfondo, frutti, bombe).
+- `tensorboard_runs/` : Logs of training sessions for TensorBoard
 
-## Requisiti
+- `tests/` : Contains testing scripts to measure model performance
 
-Le dipendenze del progetto sono elencate in `requirements.txt`. Per installarle:
-```sh
+## Installation
+
+To install the project dependencies, run:
+
+```bash
 pip install -r requirements.txt
 ```
-è necessario installare torch.
 
-## Utilizzo
+## Execution
 
-### Eseguire un agente DQN
-```sh
-python agent/play_dqn_agent.py
+### Train an agent with DQN using CNN
+```bash
+python agent/dqn_cnn.py
 ```
 
-### Eseguire un agente SARSA
-```sh
-python agent/play_sarsa.py
+### Train an agent with SARSA
+```bash
+python agent/sarsa.py
 ```
 
-## Autori
-Questo progetto è stato sviluppato per esplorare tecniche di Reinforcement Learning su ambienti personalizzati.
-
-
+### Train an agent with SARSA approximated with a neural network
+```bash
+python agent/sarsa.py
+```
