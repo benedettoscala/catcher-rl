@@ -38,7 +38,8 @@ def test_model(env, model, episodes, direction, device):
         done = False
         
         while not done:
-            #env.render()
+            env.render()
+            #env.metadata["render_fps"] = 10000
             state_tensor = state_to_tensor(state, direction).to(device)
             with torch.no_grad():
                 q_values = model(state_tensor)

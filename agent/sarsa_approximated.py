@@ -12,21 +12,7 @@ import torch.optim as optim
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from environment.catcher_discrete import CatchEnvChangeDirection
 from environment.catcher_discrete import CatchEnv
-
-class QNetwork(nn.Module):
-    def __init__(self, input_size, hidden_sizes, output_size):
-        super(QNetwork, self).__init__()
-        layers = []
-        last_size = input_size
-        for hidden_size in hidden_sizes:
-            layers.append(nn.Linear(last_size, hidden_size))
-            layers.append(nn.ReLU())
-            last_size = hidden_size
-        layers.append(nn.Linear(last_size, output_size))
-        self.network = nn.Sequential(*layers)
-    
-    def forward(self, x):
-        return self.network(x)
+from networks.QNetwork import QNetwork
 
 class SarsaTrainer:
     def __init__(self,
@@ -198,13 +184,22 @@ class SarsaTrainer:
         """
         Saves the neural network's state.
         """
-        #create folder if it doesn't exist
-        if not os.path.exists("sarsa_approximated_without_direction"):
-            os.makedirs("sarsa_approximated_without_direction")
+        if self.direction:
+            # Create folder if it doesn't exist
+            if not os.path.exists("sarsa_approximated_with_direction"):
+                os.makedirs("sarsa_approximated_with_direction")
 
-        save_path = f"sarsa_approximated_without_direction/q_network_episode_{episode}.pth"
-        torch.save(self.q_network.state_dict(), save_path)
-        self.logger.info(f"Q-network saved to {save_path}")
+            save_path = f"sarsa_approximated_with_direction/q_network_episode_{episode}.pth"
+            torch.save(self.q_network.state_dict(), save_path)
+            self.logger.info(f"Q-network saved to {save_path}")
+        else:
+            #create folder if it doesn't exist
+            if not os.path.exists("sarsa_approximated_without_direction"):
+                os.makedirs("sarsa_approximated_without_direction")
+
+            save_path = f"sarsa_approximated_without_direction/q_network_episode_{episode}.pth"
+            torch.save(self.q_network.state_dict(), save_path)
+            self.logger.info(f"Q-network saved to {save_path}")
 
     def train(self):
         """
