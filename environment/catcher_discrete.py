@@ -203,10 +203,9 @@ class CatchEnvChangeDirection(CatchEnv):
             v_speed_bin = np.clip(v_speed_bin, 0, self.speed_bins - 1)
             
             # (e) Speed bin orizzontale
-            # Shift la velocità orizzontale per renderla positiva prima della discretizzazione
             shifted_h_speed = h_speed - self.min_h_speed
-            h_speed_bin = int(shifted_h_speed // self.h_speed_step)
-            h_speed_bin = np.clip(h_speed_bin, 0, self.h_speed_bins - 1)
+            h_speed_bin = int(h_speed // self.h_speed_step)
+            h_speed_bin = np.clip(h_speed_bin, -self.h_speed_bins + 1, self.h_speed_bins - 1)
             
             obs.extend([row_discrete, col_discrete, obj_type, v_speed_bin, h_speed_bin])
         
