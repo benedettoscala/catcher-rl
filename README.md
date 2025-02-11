@@ -7,18 +7,19 @@ Catcher-RL is a Reinforcement Learning project for the "Catcher" game implemente
 The project is structured into several folders:
 
 - `agent/` : Contains reinforcement learning algorithms
-  - `dqn_cnn.py` : Implementation of DQN with CNN
-  - `play_dqn_agent.py` : Script to run a trained DQN agent
-  - `play_dqn_agent_cnn.py` : CNN version of DQN
-  - `play_sarsa.py` : Execution of the SARSA agent
-  - `play_sarsa_nn.py` : Neural network version for SARSA
-  - `sarsa.py` : Classic SARSA implementation
-  - `sarsa_approximated.py` : SARSA with function approximation
+  - `dqn_cnn.py` : Implementation of DQN with CNN, train dqn with this
+  - `sarsa.py` : Classic SARSA implementation, train q-table with this
+  - `sarsa_approximated.py` : SARSA with function approximation, train sarsa with nn with this
 
 - `environment/` : Contains the game simulation environment
   - `catcher_discrete.py` : Implementation with discrete states
   - `catcher_image.py` : Implementation with image input
   - `core/catch_base.py` : Base of the game environment
+    
+- `play/` : Contains the game simulation environment
+  - `play_dqn_agent.py` : Play the dqn agent
+  - `play_q_sarsa_approximated.py` : Play the sarsa with neural network agent
+  - `play_q_table_sarsa.py` : Play the sarsa with q table agent
 
 - `assets/` : Contains background images and game objects
 
@@ -43,15 +44,33 @@ pip install -r requirements.txt
 
 ### Train an agent with DQN using CNN
 ```bash
-python agent/dqn_cnn.py
+python -m agent.dqn_cnn
 ```
 
 ### Train an agent with SARSA
 ```bash
-python agent/sarsa.py
+python -m agent.sarsa
 ```
 
 ### Train an agent with SARSA approximated with a neural network
 ```bash
-python agent/sarsa.py
+python -m agent.sarsa-approximated
 ```
+
+## Play
+
+### Play an agent with DQN using CNN
+```bash
+python -m play.play_dqn_agent
+```
+
+### Play an agent with SARSA
+```bash
+python -m play.play_q_sarsa
+```
+
+### Train an agent with SARSA approximated with a neural network
+```bash
+python -m play.play_q_approximated
+```
+
