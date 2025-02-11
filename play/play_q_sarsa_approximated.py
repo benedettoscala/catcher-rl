@@ -72,8 +72,8 @@ def main():
     elif choice == "2":
         env = CatchEnvChangeDirection(grid_size=15)
         direction = True
-        model_path = "models/best_sarsa_approximated/direction/q_network_final.pth"
-        input_size = 11  # dimensione dello stato in CatchEnvChangeDirection
+        model_path = "models/best_sarsa_approximated/direction/q_network_final_2.pth"
+        input_size = 13  # dimensione dello stato in CatchEnvChangeDirection
     else:
         print("Scelta non valida. Uscita.")
         return
