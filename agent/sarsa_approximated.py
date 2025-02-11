@@ -76,8 +76,8 @@ class SarsaTrainer:
         if self.direction:
             self.state_size = (
                 1,  # basket_pos
-                5,  # row1, col1, type1, v_speed1, h_speed1
-                5   # row2, col2, type2, v_speed2, h_speed2
+                6,  # row1, col1, type1, v_speed1, h_speed1, direction1
+                6  # row2, col2, type2, v_speed2, h_speed2, direction2
             )
             self.input_size = self._calculate_input_size_with_direction()
         else:
@@ -120,7 +120,7 @@ class SarsaTrainer:
     def _calculate_input_size_with_direction(self):
         # Define how to flatten the state with direction information
         # Example: basket_pos + object1 + object2 + direction
-        return 1 + 5 + 5  # basket_pos + 5 per object1 + 5 per object2 = 11
+        return 1 + 6 + 6  # basket_pos + 6 per object1 + 6 per object2 = 13
 
     def state_to_tensor(self, state):
         """
@@ -128,12 +128,12 @@ class SarsaTrainer:
         """
         if self.direction:
             (basket_pos,
-             row1, col1, type1, v_speed1, h_speed1,
-             row2, col2, type2, v_speed2, h_speed2) = state
+             row1, col1, type1, v_speed1, h_speed1, direction_1,
+             row2, col2, type2, v_speed2, h_speed2, direction_2) = state
             state_flat = [
                 basket_pos,
-                row1, col1, type1, v_speed1, h_speed1,
-                row2, col2, type2, v_speed2, h_speed2
+                row1, col1, type1, v_speed1, h_speed1, direction_1,
+                row2, col2, type2, v_speed2, h_speed2, direction_2
             ]
         else:
             (basket_pos,

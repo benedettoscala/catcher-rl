@@ -133,7 +133,7 @@ class CatchEnvChangeDirection(CatchEnv):
         #    type: [0, 1]
         #    v_speed_bin: [0, speed_bins-1]
         #    h_speed_bin: [0, h_speed_bins-1]
-        #    direction_change: [0, 1]
+        #    direction: [1, 2,3]
         
         low_high_per_object = [
             self.max_row_after_offset + 1,  # row
@@ -141,6 +141,7 @@ class CatchEnvChangeDirection(CatchEnv):
             2,                             # type (0 o 1)
             self.speed_bins,               # v_speed_bin
             self.h_speed_bins,             # h_speed_bin
+            3,                     # direction_change
         ]
         
         # Combina in una singola lista
@@ -202,12 +203,21 @@ class CatchEnvChangeDirection(CatchEnv):
             v_speed_bin = int((v_speed - self.min_speed) // self.speed_step)
             v_speed_bin = np.clip(v_speed_bin, 0, self.speed_bins - 1)
             
+            #direction, se lo h speed è negativo allora 1, se è positivo allora 2, se è 0 allora 3
+            direction = 0
+            if h_speed < 0:
+                direction = 1
+            elif h_speed > 0:
+                direction = 2
+            else:
+                direction = 3
+
             # (e) Speed bin orizzontale
-            shifted_h_speed = h_speed - self.min_h_speed
-            h_speed_bin = int(h_speed // self.h_speed_step)
-            h_speed_bin = np.clip(h_speed_bin, -self.h_speed_bins + 1, self.h_speed_bins - 1)
+            h_speed_bin = (h_speed - self.min_h_speed) // self.h_speed_step
+            h_speed_bin = int(h_speed_bin)
+            h_speed_bin = np.clip(h_speed_bin, 0, self.h_speed_bins - 1)
             
-            obs.extend([row_discrete, col_discrete, obj_type, v_speed_bin, h_speed_bin])
+            obs.extend([row_discrete, col_discrete, obj_type, v_speed_bin, h_speed_bin, direction])
         
         # 4) Se ci sono meno oggetti, riempi con valori sentinel
         for _ in range(self.max_objects_in_state - len(indices_sorted)):
@@ -218,7 +228,7 @@ class CatchEnvChangeDirection(CatchEnv):
             v_speed_dummy = 0
             h_speed_dummy = 0
             direction_change_dummy = 0
-            obs.extend([row_dummy, col_dummy, type_dummy, v_speed_dummy, h_speed_dummy])
+            obs.extend([row_dummy, col_dummy, type_dummy, v_speed_dummy, h_speed_dummy, direction_change_dummy])
         
         return np.array(obs, dtype=int)
     

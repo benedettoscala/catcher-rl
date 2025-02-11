@@ -22,16 +22,16 @@ def test_cnn_model(episodes=50):
 
     # Importa ambiente e rete CNN
     try:
-        from environment.catcher_image import CatchEnvImage  # ambiente per testare il modello CNN
+        from environment.catcher_image import CatchEnvImageChangeDirection  # ambiente per testare il modello CNN
         from networks.QNetwork import CNNQNetwork
     except ImportError as e:
         print("Errore nell'import dei moduli per il modello CNN:", e)
         return None
 
     # Crea l'ambiente (versione senza cambio di direzione)
-    env = CatchEnvImage(grid_size=15)
+    env = CatchEnvImageChangeDirection(grid_size=15)
     # Costruisci il path del modello
-    model_path = os.path.join("models", "dqn_cnn_models", "no_direction", "dqn_model_final.pth")
+    model_path = os.path.join("models", "dqn_cnn_models", "direction", "dqn_model_final.pth")
     if not os.path.exists(model_path):
         print(f"File del modello CNN non trovato in: {model_path}")
         return None
@@ -103,19 +103,19 @@ def test_qnetwork_model(episodes=50):
     print(f"Utilizzo device: {device}")
 
     try:
-        from environment.catcher_discrete import CatchEnv
+        from environment.catcher_discrete import CatchEnvChangeDirection
         from networks.QNetwork import QNetwork
     except ImportError as e:
         print("Errore nell'import dei moduli per il modello QNetwork:", e)
         return None
 
     # Crea l'ambiente (versione senza cambio di direzione)
-    env = CatchEnv(grid_size=15)
+    env = CatchEnvChangeDirection(grid_size=15)
     direction = False  # non utilizziamo informazioni di direzione
-    input_size = 9   # osservazione senza direzione
+    input_size = 13   # osservazione senza direzione
     hidden_sizes = [128, 128]
     num_actions = env.action_space.n
-    model_path = os.path.join("models", "best_sarsa_approximated", "no_direction", "q_network_final.pth")
+    model_path = os.path.join("models", "best_sarsa_approximated", "direction", "q_network_episode_9100.pth")
     if not os.path.exists(model_path):
         print(f"File del modello QNetwork non trovato in: {model_path}")
         return None
