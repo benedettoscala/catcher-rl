@@ -69,7 +69,7 @@ python -m play.play_dqn_agent
 python -m play.play_q_sarsa
 ```
 
-### Train an agent with SARSA approximated with a neural network
+### Play an agent with SARSA approximated with a neural network
 ```bash
 python -m play.play_q_approximated
 ```
