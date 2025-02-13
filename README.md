@@ -43,6 +43,10 @@ To install the project dependencies, run:
 pip install -r requirements.txt
 ```
 
+Then install pytorch: https://pytorch.org/get-started/locally/
+
+If you prefer not to train the models yourself, you can download them from the link provided in the models folder and place them there.
+
 ## Execution
 
 ### Train an agent with DQN using CNN
