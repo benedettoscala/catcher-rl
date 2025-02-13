@@ -1,6 +1,7 @@
 # Catcher-RL
 
 Catcher-RL is a Reinforcement Learning project for the "Catcher" game implemented with various learning techniques, including DQN (Deep Q-Network) and SARSA (State-Action-Reward-State-Action). The game involves an agent that must catch falling objects on the screen, improving its behavior through reinforcement learning.
+![Alt Text](catcher.gif)
 
 ## Project Structure
 

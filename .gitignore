@@ -45,7 +45,6 @@ coverage/
 
 # Ignore results of training
 results/
-*.gif
 
 # Python environment and dependency files
 Pipfile
