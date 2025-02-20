@@ -65,6 +65,7 @@ def test_model(env, Q_table, direction, episodes=50):
         done = False
         
         while not done:
+            env.render()
             # Converti l'osservazione in indici per la Q-table
             state_idx = obs_to_indices(obs, direction)
             # Seleziona l'azione greedy: quella con il valore massimo

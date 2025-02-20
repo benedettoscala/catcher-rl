@@ -38,7 +38,7 @@ def test_model(env, model, episodes, direction, device):
         done = False
         
         while not done:
-            #env.render()
+            env.render()
             #env.metadata["render_fps"] = 10000
             state_tensor = state_to_tensor(state, direction).to(device)
             with torch.no_grad():
@@ -136,7 +136,7 @@ def main():
     
     model = QNetwork(input_size, hidden_sizes, num_actions).to(device)
     
-    model_path = "models/best_sarsa_approximated/direction/q_network_episode_9100.pth" if direction else "models/best_sarsa_approximated/no_direction/q_network_final.pth"
+    model_path = "models/best_sarsa_approximated/direction/q_network_final_2.pth" if direction else "models/best_sarsa_approximated/no_direction/q_network_final.pth"
     if not os.path.exists(model_path):
         print(f"Modello non trovato in {model_path}")
         return
